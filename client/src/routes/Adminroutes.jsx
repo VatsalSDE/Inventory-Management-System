@@ -21,7 +21,7 @@ const Adminroutes = () => {
         <Route path="orders" element={<Orders />} />
         <Route path="payments" element={<Payments />} />
       </Route>
-      <Route path="/login" element={<Login />} />
+      <Route path="/auth/login" element={<Login />} />
     </Routes>
   );
 };

@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
+import loginImage from '../assets/images/login-image.jpg'
+import logo from '../assets/images/logo.png'
 import { Eye, EyeOff } from 'lucide-react';
+import { Navigate } from 'react-router-dom';
 
 const Login = () => {
     const [username, setUsername] = useState('');
