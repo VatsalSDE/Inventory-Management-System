@@ -9,11 +9,27 @@ import Orders from "../pages/Orders.jsx";
 import Payments from "../pages/Payments.jsx";
 import React from "react";
 
+import { isAuthenticated } from "../apiClient";
+
+function ProtectedRoute({ children }) {
+  if (!isAuthenticated()) {
+    return <Navigate to="/auth/login" replace />;
+  }
+  return children;
+}
+
 const Adminroutes = () => {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
-      <Route path="/admin" element={<AdminLayout />}>
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <AdminLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="products" element={<Products />} />
         <Route path="inventory" element={<Inventory />} />

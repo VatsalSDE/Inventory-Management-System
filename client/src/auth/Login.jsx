@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import loginImage from '../assets/images/login-image.jpg'
 import logo from '../assets/images/logo.png'
 import { Eye, EyeOff } from 'lucide-react';
-import { Navigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { apiFetch, setToken } from '../apiClient';
 
 const Login = () => {
     const [username, setUsername] = useState('');
@@ -10,16 +11,26 @@ const Login = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
 
-    {/*-----------error handling----------------- */}
-    const handleSubmit = (e) => {
+    const navigate = useNavigate();
+
+    async function handleSubmit(e) {
         e.preventDefault();
-        if ((username === 'invenza' || username === 'Invenza') && password === 'admin987') {
-            setError('');
-            alert('Login successful (dummy)');
-        } else {
+        setError('');
+        try {
+            const data = await apiFetch('/auth/login', {
+                method: 'POST',
+                body: JSON.stringify({ username, password })
+            });
+            if (data?.token) {
+                setToken(data.token);
+                navigate('/admin/dashboard');
+            } else {
+                setError('Login failed');
+            }
+        } catch (err) {
             setError('Invalid credentials');
         }
-    };
+    }
 
     {/*---------------- Left Image Section--------------- */ }
     return (
