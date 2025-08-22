@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "../components/common/Sidebar.jsx";
-import TopBar from "../components/common/Topbar.jsx";
+import TopBar from "../components/common/TopBar.jsx";
 
 // ---------------------------------------------------------------- Admin Layout Component ----------------------------------------------------------------
 

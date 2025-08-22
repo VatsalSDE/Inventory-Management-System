@@ -1,6 +1,6 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import AdminLayout from "../layout/AdminLayout.jsx";
-import Login from "../auth/login.jsx";
+import Login from "../auth/Login.jsx";
 import Dashboard from "../pages/Dashboard.jsx";
 import Products from "../pages/Products.jsx";
 import Inventory from "../pages/Inventory.jsx";
@@ -12,6 +12,14 @@ import React from "react";
 import { isAuthenticated } from "../apiClient";
 
 function ProtectedRoute({ children }) {
+  const location = useLocation();
+  // Default: do NOT require auth unless explicitly enabled via VITE_REQUIRE_AUTH=true
+  const REQUIRE_AUTH = import.meta.env.VITE_REQUIRE_AUTH === "true";
+
+  if (!REQUIRE_AUTH && location.pathname.startsWith("/admin")) {
+    return children;
+  }
+
   if (!isAuthenticated()) {
     return <Navigate to="/auth/login" replace />;
   }

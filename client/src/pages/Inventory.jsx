@@ -1,522 +1,600 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
+  X,
+  Plus,
   Search,
-  Filter,
+  Edit,
+  Trash2,
+  Package,
+  TrendingUp,
   AlertTriangle,
   CheckCircle,
-  TrendingUp,
-  TrendingDown,
+  Clock,
   BarChart3,
-  Download,
-  Eye,
-  Settings,
 } from "lucide-react";
+import { productsAPI } from "../services/api";
 
 const Inventory = () => {
+  const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [lowStockLimit, setLowStockLimit] = useState(10);
-  const [viewMode, setViewMode] = useState("table"); // table or cards
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Mock inventory data
-  const [inventory, setInventory] = useState([
-    {
-      id: 1,
-      productCode: "PGS-STEEL-4-BRASS",
-      name: "Premium Gas Stove Deluxe",
-      category: "Steel",
-      burners: 4,
-      burnerType: "Brass",
-      price: 15000,
-      quantity: 25,
-      totalValue: 375000,
-      lastUpdated: "2024-01-15",
-      trend: "up",
-      weeklyChange: "+5",
-      image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=100",
-      supplier: "Premium Supplies Co.",
-    },
-    {
-      id: 2,
-      productCode: "CGS-GLASS-2-ALLOY",
-      name: "Compact Glass Top Stove",
-      category: "Glass",
-      burners: 2,
-      burnerType: "Alloy",
-      price: 8500,
-      quantity: 45,
-      totalValue: 382500,
-      lastUpdated: "2024-01-14",
-      trend: "up",
-      weeklyChange: "+12",
-      image:
-        "https://images.unsplash.com/photo-1584464491033-06628f3a6b7b?w=100",
-      supplier: "Glass Tech Ltd.",
-    },
-    {
-      id: 3,
-      productCode: "STD-STEEL-3-BRASS",
-      name: "Standard 3 Burner Professional",
-      category: "Steel",
-      burners: 3,
-      burnerType: "Brass",
-      price: 12000,
-      quantity: 8,
-      totalValue: 96000,
-      lastUpdated: "2024-01-13",
-      trend: "down",
-      weeklyChange: "-3",
-      image: "https://images.unsplash.com/photo-1556909019-f2c9d2d0c1bb?w=100",
-      supplier: "Steel Works Inc.",
-    },
-    {
-      id: 4,
-      productCode: "LUX-GLASS-1-ALLOY",
-      name: "Luxury Single Burner Elite",
-      category: "Glass",
-      burners: 1,
-      burnerType: "Alloy",
-      price: 6500,
-      quantity: 5,
-      totalValue: 32500,
-      lastUpdated: "2024-01-12",
-      trend: "down",
-      weeklyChange: "-2",
-      image: "https://images.unsplash.com/photo-1556909019-f2c9d2d0c1bb?w=100",
-      supplier: "Luxury Kitchen Co.",
-    },
-    {
-      id: 5,
-      productCode: "FAM-STEEL-4-ALLOY",
-      name: "Family Size Stove Premium",
-      category: "Steel",
-      burners: 4,
-      burnerType: "Alloy",
-      price: 13500,
-      quantity: 32,
-      totalValue: 432000,
-      lastUpdated: "2024-01-11",
-      trend: "up",
-      weeklyChange: "+8",
-      image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=100",
-      supplier: "Family Kitchen Solutions",
-    },
-  ]);
-
-  const getStockStatus = (quantity) => {
-    return quantity <= lowStockLimit ? "low" : "in-stock";
-  };
-
-  const getStatusIcon = (quantity) => {
-    if (quantity <= lowStockLimit) {
-      return <AlertTriangle className="w-5 h-5 text-red-500" />;
-    }
-    return <CheckCircle className="w-5 h-5 text-green-500" />;
-  };
-
-  const getStatusBadge = (quantity) => {
-    if (quantity <= lowStockLimit) {
-      return (
-        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold bg-gradient-to-r from-red-100 to-red-200 text-red-800 border border-red-300">
-          <AlertTriangle className="w-4 h-4" />
-          Critical Stock
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold bg-gradient-to-r from-green-100 to-green-200 text-green-800 border border-green-300">
-        <CheckCircle className="w-4 h-4" />
-        Healthy Stock
-      </span>
-    );
-  };
-
-  const getTrendIcon = (trend) => {
-    return trend === "up" ? (
-      <TrendingUp className="w-4 h-4 text-green-500" />
-    ) : (
-      <TrendingDown className="w-4 h-4 text-red-500" />
-    );
-  };
-
-  const filteredInventory = inventory.filter((item) => {
-    const matchesSearch =
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.productCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.supplier.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesStatus =
-      statusFilter === "all" ||
-      (statusFilter === "low" && getStockStatus(item.quantity) === "low") ||
-      (statusFilter === "in-stock" &&
-        getStockStatus(item.quantity) === "in-stock");
-
-    return matchesSearch && matchesStatus;
+  const [formData, setFormData] = useState({
+    product_name: "",
+    product_code: "",
+    description: "",
+    price: "",
+    quantity: "",
+    category: "",
+    no_burners: "",
+    type_burner: "",
+    image_url: "",
+    min_stock_level: "10",
   });
 
-  const totalItems = inventory.length;
-  const totalQuantity = inventory.reduce((sum, item) => sum + item.quantity, 0);
-  const totalValue = inventory.reduce((sum, item) => sum + item.totalValue, 0);
-  const lowStockItems = inventory.filter(
-    (item) => getStockStatus(item.quantity) === "low",
-  ).length;
-  const trendingUp = inventory.filter((item) => item.trend === "up").length;
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  const loadProducts = async () => {
+    try {
+      setLoading(true);
+      const data = await productsAPI.getAll();
+      setProducts(data);
+    } catch (err) {
+      setError(err.message);
+      console.error('Failed to load products:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateProductCode = (productName) => {
+    const prefix = productName
+      .split(" ")
+      .map((word) => word.substring(0, 3))
+      .join("")
+      .toUpperCase();
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `${prefix}-${random}`;
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const resetForm = () => {
+    setFormData({
+      product_name: "",
+      product_code: "",
+      description: "",
+      price: "",
+      quantity: "",
+      category: "",
+      no_burners: "",
+      type_burner: "",
+      image_url: "",
+      min_stock_level: "10",
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const productCode = formData.product_code || generateProductCode(formData.product_name);
+
+      const newProduct = {
+        ...formData,
+        product_code: productCode,
+        price: parseFloat(formData.price),
+        quantity: parseInt(formData.quantity),
+        no_burners: parseInt(formData.no_burners),
+        min_stock_level: parseInt(formData.min_stock_level),
+      };
+
+      await productsAPI.create(newProduct);
+      await loadProducts();
+      resetForm();
+      setShowAddForm(false);
+    } catch (err) {
+      setError(err.message);
+      console.error('Failed to create product:', err);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this product?')) {
+      try {
+        await productsAPI.delete(id);
+        await loadProducts();
+      } catch (err) {
+        setError(err.message);
+        console.error('Failed to delete product:', err);
+      }
+    }
+  };
+
+  const filteredProducts = products.filter((product) => {
+    const matchesSearch =
+      product.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.product_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.category?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    return matchesSearch;
+  });
+
+  const totalProducts = products.length;
+  const totalValue = products.reduce((sum, p) => sum + (parseFloat(p.price || 0) * parseInt(p.quantity || 0)), 0);
+  const lowStockProducts = products.filter(p => p.quantity <= (p.min_stock_level || 10)).length;
+  const outOfStockProducts = products.filter(p => p.quantity === 0).length;
+
+  const getStockStatus = (product) => {
+    if (product.quantity === 0) return { status: "Out of Stock", color: "bg-red-100 text-red-800 border-red-200", icon: <AlertTriangle className="w-4 h-4" /> };
+    if (product.quantity <= (product.min_stock_level || 10)) return { status: "Low Stock", color: "bg-yellow-100 text-yellow-800 border-yellow-200", icon: <Clock className="w-4 h-4" /> };
+    return { status: "In Stock", color: "bg-green-100 text-green-800 border-green-200", icon: <CheckCircle className="w-4 h-4" /> };
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 text-lg">Loading inventory...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Error Loading Inventory</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button 
+            onClick={loadProducts}
+            className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
-      {/* Enhanced Header */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-pink-50 p-6">
+      {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-4 mb-6">
           <div className="relative">
-            <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-xl">
-              <BarChart3 className="w-8 h-8 text-white" />
-              <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                <CheckCircle className="w-4 h-4 text-white" />
+            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500 rounded-2xl flex items-center justify-center shadow-xl">
+              <Package className="w-8 h-8 text-white" />
+              <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+                <span className="text-white text-xs font-bold">
+                  {lowStockProducts}
+                </span>
               </div>
             </div>
           </div>
           <div>
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-gray-800 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-gray-800 via-purple-600 to-pink-600 bg-clip-text text-transparent">
               Inventory Management
             </h1>
             <p className="text-gray-600 mt-2 text-lg">
-              Real-time monitoring and analytics for your gas stove inventory
+              Monitor and manage your product stock levels
             </p>
           </div>
         </div>
       </div>
 
-      {/* Enhanced Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6 mb-8">
-        <div className="bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-xl border border-white/50 hover:shadow-2xl transition-all duration-300">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <BarChart3 className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full font-medium">
-              Products
-            </span>
-          </div>
-          <p className="text-sm font-medium text-gray-600 mb-1">Total Items</p>
-          <p className="text-3xl font-bold text-gray-900">{totalItems}</p>
-          <p className="text-xs text-blue-600 mt-2">Active products</p>
-        </div>
-
-        <div className="bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-xl border border-white/50 hover:shadow-2xl transition-all duration-300">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center shadow-lg">
-              <TrendingUp className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full font-medium">
-              Units
-            </span>
-          </div>
-          <p className="text-sm font-medium text-gray-600 mb-1">
-            Total Quantity
-          </p>
-          <p className="text-3xl font-bold text-gray-900">
-            {totalQuantity.toLocaleString()}
-          </p>
-          <p className="text-xs text-green-600 mt-2">
-            +{trendingUp} trending up
-          </p>
-        </div>
-
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
         <div className="bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-xl border border-white/50 hover:shadow-2xl transition-all duration-300">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <span className="text-white text-xl font-bold">₹</span>
+              <Package className="w-6 h-6 text-white" />
             </div>
             <span className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded-full font-medium">
-              Value
+              Total
             </span>
           </div>
-          <p className="text-sm font-medium text-gray-600 mb-1">Total Value</p>
-          <p className="text-3xl font-bold text-gray-900">
-            ₹{(totalValue / 100000).toFixed(1)}L
+          <p className="text-sm font-medium text-gray-600 mb-1">
+            Total Products
           </p>
-          <p className="text-xs text-purple-600 mt-2">Market worth</p>
+          <p className="text-3xl font-bold text-gray-900">{totalProducts}</p>
+          <p className="text-xs text-purple-600 mt-2">In inventory</p>
         </div>
 
         <div className="bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-xl border border-white/50 hover:shadow-2xl transition-all duration-300">
           <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-red-500 to-red-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <div className="w-12 h-12 bg-gradient-to-r from-pink-500 to-rose-500 rounded-2xl flex items-center justify-center shadow-lg">
+              <TrendingUp className="w-6 h-6 text-white" />
+            </div>
+            <span className="text-xs bg-pink-100 text-pink-600 px-2 py-1 rounded-full font-medium">
+              Value
+            </span>
+          </div>
+          <p className="text-sm font-medium text-gray-600 mb-1">
+            Total Value
+          </p>
+          <p className="text-3xl font-bold text-gray-900">
+            ₹{(totalValue / 1000).toFixed(1)}K
+          </p>
+          <p className="text-xs text-pink-600 mt-2">Inventory worth</p>
+        </div>
+
+        <div className="bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-xl border border-white/50 hover:shadow-2xl transition-all duration-300">
+          <div className="flex items-center justify-between mb-4">
+            <div className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg">
               <AlertTriangle className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full font-medium">
-              Alert
+            <span className="text-xs bg-yellow-100 text-yellow-600 px-2 py-1 rounded-full font-medium">
+              Low Stock
             </span>
           </div>
           <p className="text-sm font-medium text-gray-600 mb-1">
             Low Stock Items
           </p>
-          <p className="text-3xl font-bold text-gray-900">{lowStockItems}</p>
-          <p className="text-xs text-red-600 mt-2">Need attention</p>
+          <p className="text-3xl font-bold text-gray-900">{lowStockProducts}</p>
+          <p className="text-xs text-yellow-600 mt-2">Need attention</p>
         </div>
 
         <div className="bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-xl border border-white/50 hover:shadow-2xl transition-all duration-300">
           <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <Settings className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 bg-gradient-to-r from-red-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg">
+              <BarChart3 className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full font-medium">
-              Limit
+            <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full font-medium">
+              Out of Stock
             </span>
           </div>
           <p className="text-sm font-medium text-gray-600 mb-1">
-            Stock Threshold
+            Out of Stock
           </p>
-          <p className="text-3xl font-bold text-gray-900">{lowStockLimit}</p>
-          <p className="text-xs text-orange-600 mt-2">Units minimum</p>
+          <p className="text-3xl font-bold text-gray-900">{outOfStockProducts}</p>
+          <p className="text-xs text-red-600 mt-2">Need restocking</p>
         </div>
       </div>
 
-      {/* Enhanced Controls */}
+      {/* Controls */}
       <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-6 mb-8">
-        <div className="flex flex-col xl:flex-row gap-4 items-center">
-          {/* Search */}
+        <div className="flex flex-col lg:flex-row gap-4 items-center">
           <div className="flex-1 relative">
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
-              placeholder="Search by product name, code, category, or supplier..."
-              className="w-full pl-12 pr-4 py-4 bg-gray-50/80 border border-gray-200/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent backdrop-blur-sm transition-all duration-300 text-gray-700 placeholder-gray-400 text-lg"
+              placeholder="Search products by name, code, or category..."
+              className="w-full pl-12 pr-4 py-4 bg-gray-50/80 border border-gray-200/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent backdrop-blur-sm transition-all duration-300 text-gray-700 placeholder-gray-400 text-lg"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
-          {/* Filters and Controls */}
-          <div className="flex flex-wrap gap-3">
-            <div className="flex items-center gap-2">
-              <Filter className="w-5 h-5 text-gray-400" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-4 bg-gray-50/80 border border-gray-200/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-gray-700 text-lg"
-              >
-                <option value="all">All Status</option>
-                <option value="in-stock">Healthy Stock</option>
-                <option value="low">Critical Stock</option>
-              </select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <label className="text-lg font-medium text-gray-700">
-                Stock Limit:
-              </label>
-              <input
-                type="number"
-                value={lowStockLimit}
-                onChange={(e) =>
-                  setLowStockLimit(parseInt(e.target.value) || 10)
-                }
-                className="w-20 px-3 py-4 border border-gray-200/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-lg text-center"
-                min="1"
-              />
-            </div>
-
-            <button className="px-6 py-4 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-2xl hover:from-green-600 hover:to-emerald-600 transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105 text-lg font-semibold">
-              <Download className="w-5 h-5" />
-              Export
-            </button>
-          </div>
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-4 rounded-2xl hover:from-purple-600 hover:to-pink-600 transition-all duration-300 flex items-center gap-3 shadow-lg hover:shadow-xl transform hover:scale-105 text-lg font-semibold"
+          >
+            <Plus className="w-6 h-6" />
+            Add Product
+          </button>
         </div>
       </div>
 
-      {/* Enhanced Inventory Table */}
-      <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-5 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">
-                  Product Details
-                </th>
-                <th className="px-6 py-5 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">
-                  Specifications
-                </th>
-                <th className="px-6 py-5 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">
-                  Pricing
-                </th>
-                <th className="px-6 py-5 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">
-                  Stock Status
-                </th>
-                <th className="px-6 py-5 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">
-                  Performance
-                </th>
-                <th className="px-6 py-5 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">
-                  Supplier
-                </th>
-                <th className="px-6 py-5 text-left text-sm font-bold text-gray-700 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredInventory.map((item) => (
-                <tr
-                  key={item.id}
-                  className="hover:bg-blue-50/50 transition-colors group"
+      {/* Products Grid */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        {filteredProducts.map((product) => {
+          const stockStatus = getStockStatus(product);
+          return (
+            <div
+              key={product.product_id}
+              className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 overflow-hidden hover:shadow-2xl transition-all duration-300 group"
+            >
+              {/* Header */}
+              <div className="bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 p-6 text-white relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+                <div className="relative z-10 flex items-start justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 bg-white/20 rounded-2xl border-3 border-white shadow-xl flex items-center justify-center">
+                      <Package className="w-8 h-8 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold">{product.product_name}</h3>
+                      <p className="text-pink-100 text-lg">{product.product_code}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium">
+                          {product.category || 'Uncategorized'}
+                        </span>
+                        <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium">
+                          ₹{parseFloat(product.price || 0).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span
+                      className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${stockStatus.color}`}
+                    >
+                      {stockStatus.icon}
+                      {stockStatus.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-6">
+                <div className="grid grid-cols-3 gap-4 mb-6">
+                  <div className="text-center p-4 bg-purple-50 rounded-2xl border border-purple-200">
+                    <p className="text-2xl font-bold text-purple-600">
+                      {product.quantity || 0}
+                    </p>
+                    <p className="text-xs text-purple-500 font-medium">
+                      In Stock
+                    </p>
+                  </div>
+                  <div className="text-center p-4 bg-pink-50 rounded-2xl border border-pink-200">
+                    <p className="text-2xl font-bold text-pink-600">
+                      {product.no_burners || 'N/A'}
+                    </p>
+                    <p className="text-xs text-pink-500 font-medium">
+                      Burners
+                    </p>
+                  </div>
+                  <div className="text-center p-4 bg-rose-50 rounded-2xl border border-rose-200">
+                    <p className="text-2xl font-bold text-rose-600">
+                      ₹{(parseFloat(product.price || 0) * parseInt(product.quantity || 0)).toLocaleString()}
+                    </p>
+                    <p className="text-xs text-rose-500 font-medium">
+                      Total Value
+                    </p>
+                  </div>
+                </div>
+
+                {product.description && (
+                  <div className="mb-6 p-4 bg-gray-50 rounded-2xl">
+                    <p className="text-gray-700">{product.description}</p>
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleDelete(product.product_id)}
+                    className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-3 px-4 rounded-2xl hover:from-red-600 hover:to-red-700 transition-colors shadow-lg transform hover:scale-105 text-lg font-semibold flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* No Results */}
+      {filteredProducts.length === 0 && (
+        <div className="text-center py-16">
+          <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-500 mb-2">
+            No products found
+          </h3>
+          <p className="text-gray-400">
+            Try adjusting your search criteria or add new products to get
+            started.
+          </p>
+        </div>
+      )}
+
+      {/* Add Product Modal */}
+      {showAddForm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-white/50">
+            <div className="bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 p-8 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-bold">Add New Product</h2>
+                  <p className="text-pink-100 mt-1">
+                    Add a new product to inventory
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowAddForm(false);
+                    resetForm();
+                  }}
+                  className="p-3 rounded-2xl bg-white/20 hover:bg-white/30 transition-colors"
                 >
-                  {/* Product Details */}
-                  <td className="px-6 py-6 whitespace-nowrap">
-                    <div className="flex items-center space-x-4">
-                      <div className="flex-shrink-0 w-16 h-16">
-                        <img
-                          className="w-16 h-16 rounded-2xl object-cover shadow-lg border-2 border-white group-hover:scale-110 transition-transform duration-300"
-                          src={item.image}
-                          alt={item.name}
-                        />
-                      </div>
-                      <div>
-                        <div className="text-lg font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">
-                          {item.name}
-                        </div>
-                        <div className="text-sm font-mono text-gray-500 bg-gray-100 px-2 py-1 rounded-lg inline-block">
-                          {item.productCode}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
 
-                  {/* Specifications */}
-                  <td className="px-6 py-6">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {item.category}
-                        </span>
-                        <span className="text-sm text-gray-600">
-                          {item.burners} Burner
-                        </span>
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {item.burnerType} Type
-                      </div>
-                    </div>
-                  </td>
+            <form onSubmit={handleSubmit} className="p-8 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-lg font-semibold text-gray-700 mb-3">
+                    Product Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="product_name"
+                    value={formData.product_name}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent text-lg"
+                    placeholder="Enter product name"
+                    required
+                  />
+                </div>
 
-                  {/* Pricing */}
-                  <td className="px-6 py-6">
-                    <div className="space-y-1">
-                      <div className="text-xl font-bold text-gray-900">
-                        ₹{item.price.toLocaleString()}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        Total: ₹{item.totalValue.toLocaleString()}
-                      </div>
-                    </div>
-                  </td>
+                <div>
+                  <label className="block text-lg font-semibold text-gray-700 mb-3">
+                    Product Code
+                  </label>
+                  <input
+                    type="text"
+                    name="product_code"
+                    value={formData.product_code}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent text-lg"
+                    placeholder="Leave empty for auto-generation"
+                  />
+                </div>
+              </div>
 
-                  {/* Stock Status */}
-                  <td className="px-6 py-6">
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3">
-                        {getStatusIcon(item.quantity)}
-                        <span
-                          className={`text-2xl font-bold ${
-                            item.quantity <= lowStockLimit
-                              ? "text-red-600"
-                              : "text-green-600"
-                          }`}
-                        >
-                          {item.quantity}
-                        </span>
-                        <span className="text-gray-500 text-sm">units</span>
-                      </div>
-                      {getStatusBadge(item.quantity)}
-                    </div>
-                  </td>
+              <div>
+                <label className="block text-lg font-semibold text-gray-700 mb-3">
+                  Description
+                </label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  rows="3"
+                  className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent text-lg resize-none"
+                  placeholder="Product description"
+                />
+              </div>
 
-                  {/* Performance */}
-                  <td className="px-6 py-6">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        {getTrendIcon(item.trend)}
-                        <span
-                          className={`text-sm font-semibold ${
-                            item.trend === "up"
-                              ? "text-green-600"
-                              : "text-red-600"
-                          }`}
-                        >
-                          {item.weeklyChange} this week
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Updated: {item.lastUpdated}
-                      </div>
-                    </div>
-                  </td>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-lg font-semibold text-gray-700 mb-3">
+                    Price <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="price"
+                    value={formData.price}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent text-lg"
+                    placeholder="0.00"
+                    step="0.01"
+                    required
+                  />
+                </div>
 
-                  {/* Supplier */}
-                  <td className="px-6 py-6">
-                    <div className="text-sm font-medium text-gray-900">
-                      {item.supplier}
-                    </div>
-                  </td>
+                <div>
+                  <label className="block text-lg font-semibold text-gray-700 mb-3">
+                    Quantity <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="quantity"
+                    value={formData.quantity}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent text-lg"
+                    placeholder="0"
+                    required
+                  />
+                </div>
 
-                  {/* Actions */}
-                  <td className="px-6 py-6">
-                    <div className="flex space-x-2">
-                      <button className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-xl transition-colors">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl transition-colors">
-                        <Settings className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                <div>
+                  <label className="block text-lg font-semibold text-gray-700 mb-3">
+                    Min Stock Level
+                  </label>
+                  <input
+                    type="number"
+                    name="min_stock_level"
+                    value={formData.min_stock_level}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent text-lg"
+                    placeholder="10"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-lg font-semibold text-gray-700 mb-3">
+                    Category
+                  </label>
+                  <select
+                    name="category"
+                    value={formData.category}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent text-lg"
+                  >
+                    <option value="">Select Category</option>
+                    <option value="Gas Stove">Gas Stove</option>
+                    <option value="Burner">Burner</option>
+                    <option value="Accessory">Accessory</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-lg font-semibold text-gray-700 mb-3">
+                    Number of Burners
+                  </label>
+                  <input
+                    type="number"
+                    name="no_burners"
+                    value={formData.no_burners}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent text-lg"
+                    placeholder="2"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-lg font-semibold text-gray-700 mb-3">
+                    Burner Type
+                  </label>
+                  <input
+                    type="text"
+                    name="type_burner"
+                    value={formData.type_burner}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent text-lg"
+                    placeholder="Brass/Steel"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-lg font-semibold text-gray-700 mb-3">
+                    Image URL
+                  </label>
+                  <input
+                    type="url"
+                    name="image_url"
+                    value={formData.image_url}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent text-lg"
+                    placeholder="https://example.com/image.jpg"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-4 pt-6 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    resetForm();
+                  }}
+                  className="flex-1 px-6 py-4 border border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 transition-colors text-lg font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl hover:from-purple-600 hover:to-pink-600 transition-colors shadow-lg text-lg font-semibold"
+                >
+                  Add Product
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-
-        {filteredInventory.length === 0 && (
-          <div className="text-center py-16">
-            <BarChart3 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-500 mb-2">
-              No inventory items found
-            </h3>
-            <p className="text-gray-400">
-              Try adjusting your search criteria or filters.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Analytics Footer */}
-      <div className="mt-8 bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">
-              Inventory Analytics
-            </h3>
-            <p className="text-gray-600">
-              Performance insights and trend analysis
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm text-gray-500">Turnover Rate</p>
-              <p className="text-2xl font-bold text-green-600">12.4%</p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-500">Reorder Point</p>
-              <p className="text-2xl font-bold text-orange-600">
-                {lowStockItems} items
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-500">Avg. Stock Days</p>
-              <p className="text-2xl font-bold text-blue-600">45 days</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 };

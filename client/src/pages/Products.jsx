@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   X,
   Plus,
@@ -11,75 +11,45 @@ import {
   TrendingUp,
   Package,
 } from "lucide-react";
+import { productsAPI } from "../services/api";
 
 const Products = () => {
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [sortBy, setSortBy] = useState("name");
-
-  const [products, setProducts] = useState([
-    {
-      id: 1,
-      name: "Premium Gas Stove Deluxe",
-      category: "Steel",
-      burners: 4,
-      burnerType: "Brass",
-      price: 15000,
-      quantity: 25,
-      productCode: "PGS-STEEL-4-BRASS",
-      image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400",
-      description:
-        "High-quality 4 burner steel gas stove with brass burners. Perfect for large families with premium finish and durability.",
-      rating: 4.8,
-      sales: 145,
-      featured: true,
-    },
-    {
-      id: 2,
-      name: "Compact Glass Top Stove",
-      category: "Glass",
-      burners: 2,
-      burnerType: "Alloy",
-      price: 8500,
-      quantity: 45,
-      productCode: "CGS-GLASS-2-ALLOY",
-      image:
-        "https://images.unsplash.com/photo-1584464491033-06628f3a6b7b?w=400",
-      description:
-        "Space-saving 2 burner glass top gas stove with alloy burners. Modern design for contemporary kitchens.",
-      rating: 4.5,
-      sales: 98,
-      featured: false,
-    },
-    {
-      id: 3,
-      name: "Professional Chef Series",
-      category: "Steel",
-      burners: 3,
-      burnerType: "Brass",
-      price: 12000,
-      quantity: 8,
-      productCode: "PCS-STEEL-3-BRASS",
-      image: "https://images.unsplash.com/photo-1556909019-f2c9d2d0c1bb?w=400",
-      description:
-        "Professional grade 3 burner stove designed for heavy-duty cooking with superior heat distribution.",
-      rating: 4.9,
-      sales: 76,
-      featured: true,
-    },
-  ]);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [editingProduct, setEditingProduct] = useState(null);
 
   const [formData, setFormData] = useState({
-    name: "",
-    category: "Steel",
-    burners: "2",
-    burnerType: "Brass",
+    product_name: "",
+    category: "steel",
+    no_burners: "2",
+    type_burner: "Brass",
     price: "",
     quantity: "",
-    image: "",
-    description: "",
+    image_url: "",
   });
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  const loadProducts = async () => {
+    try {
+      setLoading(true);
+      const data = await productsAPI.getAll();
+      setProducts(data);
+    } catch (err) {
+      setError(err.message);
+      console.error('Failed to load products:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const generateProductCode = (name, category, burners, burnerType) => {
     const nameCode = name
@@ -98,53 +68,106 @@ const Products = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const productCode = generateProductCode(
-      formData.name,
-      formData.category,
-      formData.burners,
-      formData.burnerType,
-    );
-
-    const newProduct = {
-      id: products.length + 1,
-      ...formData,
-      productCode,
-      price: parseFloat(formData.price),
-      quantity: parseInt(formData.quantity),
-      image:
-        formData.image ||
-        "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400",
-      rating: 0,
-      sales: 0,
-      featured: false,
-    };
-
-    setProducts([...products, newProduct]);
+  const resetForm = () => {
     setFormData({
-      name: "",
-      category: "Steel",
-      burners: "2",
-      burnerType: "Brass",
+      product_name: "",
+      category: "steel",
+      no_burners: "2",
+      type_burner: "Brass",
       price: "",
       quantity: "",
-      image: "",
-      description: "",
+      image_url: "",
     });
-    setShowAddForm(false);
   };
 
-  const handleDelete = (id) => {
-    setProducts(products.filter((product) => product.id !== id));
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const productCode = generateProductCode(
+        formData.product_name,
+        formData.category,
+        formData.no_burners,
+        formData.type_burner,
+      );
+
+      const newProduct = {
+        ...formData,
+        product_code: productCode,
+        price: parseFloat(formData.price),
+        quantity: parseInt(formData.quantity),
+        image_url: formData.image_url || "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400",
+      };
+
+      await productsAPI.create(newProduct);
+      await loadProducts();
+      resetForm();
+      setShowAddForm(false);
+    } catch (err) {
+      setError(err.message);
+      console.error('Failed to create product:', err);
+    }
+  };
+
+  const handleEdit = (product) => {
+    setEditingProduct(product);
+    setFormData({
+      product_name: product.product_name,
+      category: product.category,
+      no_burners: product.no_burners.toString(),
+      type_burner: product.type_burner,
+      price: product.price.toString(),
+      quantity: product.quantity.toString(),
+      image_url: product.image_url || "",
+    });
+    setShowEditForm(true);
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    try {
+      const productCode = generateProductCode(
+        formData.product_name,
+        formData.category,
+        formData.no_burners,
+        formData.type_burner,
+      );
+
+      const updatedProduct = {
+        ...formData,
+        product_code: productCode,
+        price: parseFloat(formData.price),
+        quantity: parseInt(formData.quantity),
+      };
+
+      await productsAPI.update(editingProduct.product_id, updatedProduct);
+      await loadProducts();
+      resetForm();
+      setShowEditForm(false);
+      setEditingProduct(null);
+    } catch (err) {
+      setError(err.message);
+      console.error('Failed to update product:', err);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this product?')) {
+      try {
+        await productsAPI.delete(id);
+        await loadProducts();
+      } catch (err) {
+        setError(err.message);
+        console.error('Failed to delete product:', err);
+      }
+    }
   };
 
   const filteredProducts = products
     .filter((product) => {
       const matchesSearch =
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.product_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         product.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.productCode.toLowerCase().includes(searchTerm.toLowerCase());
+        product.product_code.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory =
         categoryFilter === "all" ||
         product.category.toLowerCase() === categoryFilter.toLowerCase();
@@ -154,14 +177,43 @@ const Products = () => {
       switch (sortBy) {
         case "price":
           return a.price - b.price;
-        case "rating":
-          return b.rating - a.rating;
-        case "sales":
-          return b.sales - a.sales;
+        case "quantity":
+          return b.quantity - a.quantity;
+        case "name":
+          return a.product_name.localeCompare(b.product_name);
         default:
-          return a.name.localeCompare(b.name);
+          return a.product_name.localeCompare(b.product_name);
       }
     });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-emerald-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 text-lg">Loading products...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Error Loading Products</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button 
+            onClick={loadProducts}
+            className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
@@ -221,12 +273,12 @@ const Products = () => {
           <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/50">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center">
-                <Star className="w-6 h-6 text-white" />
+                <span className="text-white text-xl">⚠️</span>
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-600">Featured</p>
+                <p className="text-sm font-medium text-gray-600">Low Stock</p>
                 <p className="text-2xl font-bold text-gray-800">
-                  {products.filter((p) => p.featured).length}
+                  {products.filter((p) => p.quantity < 10).length}
                 </p>
               </div>
             </div>
@@ -240,10 +292,9 @@ const Products = () => {
                 <p className="text-sm font-medium text-gray-600">Avg. Price</p>
                 <p className="text-2xl font-bold text-gray-800">
                   ₹
-                  {Math.round(
-                    products.reduce((sum, p) => sum + p.price, 0) /
-                      products.length,
-                  ).toLocaleString()}
+                  {products.length > 0 ? Math.round(
+                    products.reduce((sum, p) => sum + p.price, 0) / products.length
+                  ).toLocaleString() : 0}
                 </p>
               </div>
             </div>
@@ -285,8 +336,7 @@ const Products = () => {
             >
               <option value="name">Sort by Name</option>
               <option value="price">Sort by Price</option>
-              <option value="rating">Sort by Rating</option>
-              <option value="sales">Sort by Sales</option>
+              <option value="quantity">Sort by Quantity</option>
             </select>
 
             <button
@@ -304,25 +354,20 @@ const Products = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
         {filteredProducts.map((product) => (
           <div
-            key={product.id}
+            key={product.product_id}
             className="group bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 overflow-hidden hover:shadow-2xl transition-all duration-500 transform hover:scale-105"
           >
             {/* Product Image */}
             <div className="relative h-64 overflow-hidden">
               <img
-                src={product.image}
-                alt={product.name}
+                src={product.image_url || "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400"}
+                alt={product.product_name}
                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"></div>
 
               {/* Badges */}
               <div className="absolute top-4 left-4 flex gap-2">
-                {product.featured && (
-                  <span className="px-3 py-1 bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-xs font-bold rounded-full shadow-lg">
-                    ⭐ Featured
-                  </span>
-                )}
                 <span
                   className={`px-3 py-1 text-white text-xs font-bold rounded-full shadow-lg ${
                     product.quantity < 10
@@ -336,23 +381,18 @@ const Products = () => {
 
               {/* Quick Actions */}
               <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <button className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-blue-500 hover:text-white transition-colors">
+                <button 
+                  onClick={() => handleEdit(product)}
+                  className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-blue-500 hover:text-white transition-colors"
+                >
                   <Edit className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => handleDelete(product.id)}
+                  onClick={() => handleDelete(product.product_id)}
                   className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-red-500 hover:text-white transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
-              </div>
-
-              {/* Rating */}
-              <div className="absolute bottom-4 left-4 flex items-center gap-2 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full">
-                <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                <span className="text-sm font-semibold text-gray-700">
-                  {product.rating}
-                </span>
               </div>
             </div>
 
@@ -360,10 +400,10 @@ const Products = () => {
             <div className="p-6">
               <div className="mb-4">
                 <h3 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-emerald-600 transition-colors">
-                  {product.name}
+                  {product.product_name}
                 </h3>
-                <p className="text-gray-600 text-sm line-clamp-2">
-                  {product.description}
+                <p className="text-gray-600 text-sm">
+                  {product.product_code}
                 </p>
               </div>
 
@@ -371,20 +411,20 @@ const Products = () => {
               <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="bg-gray-50 p-3 rounded-xl">
                   <p className="text-xs text-gray-500 mb-1">Category</p>
-                  <p className="font-semibold text-gray-700">
+                  <p className="font-semibold text-gray-700 capitalize">
                     {product.category}
                   </p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-xl">
                   <p className="text-xs text-gray-500 mb-1">Burners</p>
                   <p className="font-semibold text-gray-700">
-                    {product.burners}
+                    {product.no_burners}
                   </p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-xl">
                   <p className="text-xs text-gray-500 mb-1">Type</p>
                   <p className="font-semibold text-gray-700">
-                    {product.burnerType}
+                    {product.type_burner}
                   </p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-xl">
@@ -403,15 +443,18 @@ const Products = () => {
                   <p className="text-3xl font-bold text-emerald-600">
                     ₹{product.price.toLocaleString()}
                   </p>
-                  <p className="text-xs text-gray-500">{product.productCode}</p>
+                  <p className="text-xs text-gray-500">{product.product_code}</p>
                 </div>
 
                 <div className="flex gap-2">
-                  <button className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-colors shadow-lg transform hover:scale-105 text-sm font-semibold">
+                  <button 
+                    onClick={() => handleEdit(product)}
+                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-colors shadow-lg transform hover:scale-105 text-sm font-semibold"
+                  >
                     Edit
                   </button>
                   <button
-                    onClick={() => handleDelete(product.id)}
+                    onClick={() => handleDelete(product.product_id)}
                     className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-colors shadow-lg transform hover:scale-105 text-sm font-semibold"
                   >
                     Delete
@@ -423,7 +466,7 @@ const Products = () => {
         ))}
       </div>
 
-      {/* Add Product Modal - Enhanced */}
+      {/* Add Product Modal */}
       {showAddForm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-white/50">
@@ -437,7 +480,10 @@ const Products = () => {
                 </p>
               </div>
               <button
-                onClick={() => setShowAddForm(false)}
+                onClick={() => {
+                  setShowAddForm(false);
+                  resetForm();
+                }}
                 className="p-3 rounded-2xl bg-gray-100 hover:bg-gray-200 transition-colors"
               >
                 <X className="w-6 h-6 text-gray-600" />
@@ -452,8 +498,8 @@ const Products = () => {
                 </label>
                 <input
                   type="text"
-                  name="name"
-                  value={formData.name}
+                  name="product_name"
+                  value={formData.product_name}
                   onChange={handleInputChange}
                   className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-transparent text-lg"
                   placeholder="Enter product name"
@@ -471,8 +517,8 @@ const Products = () => {
                     <input
                       type="radio"
                       name="category"
-                      value="Steel"
-                      checked={formData.category === "Steel"}
+                      value="steel"
+                      checked={formData.category === "steel"}
                       onChange={handleInputChange}
                       className="mr-3 w-5 h-5 text-emerald-500"
                     />
@@ -482,8 +528,8 @@ const Products = () => {
                     <input
                       type="radio"
                       name="category"
-                      value="Glass"
-                      checked={formData.category === "Glass"}
+                      value="glass"
+                      checked={formData.category === "glass"}
                       onChange={handleInputChange}
                       className="mr-3 w-5 h-5 text-emerald-500"
                     />
@@ -506,9 +552,9 @@ const Products = () => {
                       >
                         <input
                           type="radio"
-                          name="burners"
+                          name="no_burners"
                           value={num}
-                          checked={formData.burners === num}
+                          checked={formData.no_burners === num}
                           onChange={handleInputChange}
                           className="mr-2 w-4 h-4 text-emerald-500"
                         />
@@ -526,9 +572,9 @@ const Products = () => {
                     <label className="flex items-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
                       <input
                         type="radio"
-                        name="burnerType"
+                        name="type_burner"
                         value="Brass"
-                        checked={formData.burnerType === "Brass"}
+                        checked={formData.type_burner === "Brass"}
                         onChange={handleInputChange}
                         className="mr-3 w-4 h-4 text-emerald-500"
                       />
@@ -537,9 +583,9 @@ const Products = () => {
                     <label className="flex items-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
                       <input
                         type="radio"
-                        name="burnerType"
+                        name="type_burner"
                         value="Alloy"
-                        checked={formData.burnerType === "Alloy"}
+                        checked={formData.type_burner === "Alloy"}
                         onChange={handleInputChange}
                         className="mr-3 w-4 h-4 text-emerald-500"
                       />
@@ -589,41 +635,26 @@ const Products = () => {
                 </label>
                 <input
                   type="url"
-                  name="image"
-                  value={formData.image}
+                  name="image_url"
+                  value={formData.image_url}
                   onChange={handleInputChange}
                   className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-transparent text-lg"
                   placeholder="https://example.com/image.jpg"
                 />
               </div>
 
-              {/* Description */}
-              <div>
-                <label className="block text-lg font-semibold text-gray-700 mb-3">
-                  Description
-                </label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  rows="4"
-                  className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-transparent text-lg resize-none"
-                  placeholder="Enter product description..."
-                />
-              </div>
-
               {/* Generated Product Code */}
-              {formData.name && (
+              {formData.product_name && (
                 <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-200">
                   <label className="block text-lg font-semibold text-emerald-700 mb-2">
                     Generated Product Code
                   </label>
                   <div className="text-2xl font-bold text-emerald-600 font-mono">
                     {generateProductCode(
-                      formData.name,
+                      formData.product_name,
                       formData.category,
-                      formData.burners,
-                      formData.burnerType,
+                      formData.no_burners,
+                      formData.type_burner,
                     )}
                   </div>
                 </div>
@@ -633,7 +664,10 @@ const Products = () => {
               <div className="flex gap-4 pt-6 border-t border-gray-100">
                 <button
                   type="button"
-                  onClick={() => setShowAddForm(false)}
+                  onClick={() => {
+                    setShowAddForm(false);
+                    resetForm();
+                  }}
                   className="flex-1 px-6 py-4 border border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 transition-colors text-lg font-semibold"
                 >
                   Cancel
@@ -643,6 +677,226 @@ const Products = () => {
                   className="flex-1 px-6 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl hover:from-emerald-600 hover:to-teal-600 transition-colors shadow-lg text-lg font-semibold"
                 >
                   Create Product
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Product Modal */}
+      {showEditForm && editingProduct && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-white/50">
+            <div className="flex items-center justify-between p-8 border-b border-gray-100">
+              <div>
+                <h2 className="text-3xl font-bold text-gray-800">
+                  Edit Product
+                </h2>
+                <p className="text-gray-600 mt-1">
+                  Update product information
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowEditForm(false);
+                  setEditingProduct(null);
+                  resetForm();
+                }}
+                className="p-3 rounded-2xl bg-gray-100 hover:bg-gray-200 transition-colors"
+              >
+                <X className="w-6 h-6 text-gray-600" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdate} className="p-8 space-y-6">
+              {/* Product Name */}
+              <div>
+                <label className="block text-lg font-semibold text-gray-700 mb-3">
+                  Product Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="product_name"
+                  value={formData.product_name}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-transparent text-lg"
+                  placeholder="Enter product name"
+                  required
+                />
+              </div>
+
+              {/* Category */}
+              <div>
+                <label className="block text-lg font-semibold text-gray-700 mb-3">
+                  Category <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <label className="flex items-center p-4 border border-gray-200 rounded-2xl cursor-pointer hover:bg-gray-50 transition-colors">
+                    <input
+                      type="radio"
+                      name="category"
+                      value="steel"
+                      checked={formData.category === "steel"}
+                      onChange={handleInputChange}
+                      className="mr-3 w-5 h-5 text-emerald-500"
+                    />
+                    <span className="text-lg font-medium">Steel</span>
+                  </label>
+                  <label className="flex items-center p-4 border border-gray-200 rounded-2xl cursor-pointer hover:bg-gray-50 transition-colors">
+                    <input
+                      type="radio"
+                      name="category"
+                      value="glass"
+                      checked={formData.category === "glass"}
+                      onChange={handleInputChange}
+                      className="mr-3 w-5 h-5 text-emerald-500"
+                    />
+                    <span className="text-lg font-medium">Glass</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Burners and Type */}
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-lg font-semibold text-gray-700 mb-3">
+                    Number of Burners <span className="text-red-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {["1", "2", "3", "4"].map((num) => (
+                      <label
+                        key={num}
+                        className="flex items-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors"
+                      >
+                        <input
+                          type="radio"
+                          name="no_burners"
+                          value={num}
+                          checked={formData.no_burners === num}
+                          onChange={handleInputChange}
+                          className="mr-2 w-4 h-4 text-emerald-500"
+                        />
+                        <span className="font-medium">{num}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-lg font-semibold text-gray-700 mb-3">
+                    Burner Type <span className="text-red-500">*</span>
+                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                      <input
+                        type="radio"
+                        name="type_burner"
+                        value="Brass"
+                        checked={formData.type_burner === "Brass"}
+                        onChange={handleInputChange}
+                        className="mr-3 w-4 h-4 text-emerald-500"
+                      />
+                      <span className="font-medium">Brass</span>
+                    </label>
+                    <label className="flex items-center p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                      <input
+                        type="radio"
+                        name="type_burner"
+                        value="Alloy"
+                        checked={formData.type_burner === "Alloy"}
+                        onChange={handleInputChange}
+                        className="mr-3 w-4 h-4 text-emerald-500"
+                      />
+                      <span className="font-medium">Alloy</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Price and Quantity */}
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-lg font-semibold text-gray-700 mb-3">
+                    Price (₹) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="price"
+                    value={formData.price}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-transparent text-lg"
+                    placeholder="0"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-lg font-semibold text-gray-700 mb-3">
+                    Quantity <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="quantity"
+                    value={formData.quantity}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-transparent text-lg"
+                    placeholder="0"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Image URL */}
+              <div>
+                <label className="block text-lg font-semibold text-gray-700 mb-3">
+                  Image URL
+                </label>
+                <input
+                  type="url"
+                  name="image_url"
+                  value={formData.image_url}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-transparent text-lg"
+                  placeholder="https://example.com/image.jpg"
+                />
+              </div>
+
+              {/* Generated Product Code */}
+              {formData.product_name && (
+                <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-200">
+                  <label className="block text-lg font-semibold text-emerald-700 mb-2">
+                    Generated Product Code
+                  </label>
+                  <div className="text-2xl font-bold text-emerald-600 font-mono">
+                    {generateProductCode(
+                      formData.product_name,
+                      formData.category,
+                      formData.no_burners,
+                      formData.type_burner,
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Submit Buttons */}
+              <div className="flex gap-4 pt-6 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditForm(false);
+                    setEditingProduct(null);
+                    resetForm();
+                  }}
+                  className="flex-1 px-6 py-4 border border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 transition-colors text-lg font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-6 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl hover:from-blue-600 hover:to-blue-700 transition-colors shadow-lg text-lg font-semibold"
+                >
+                  Update Product
                 </button>
               </div>
             </form>
