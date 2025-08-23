@@ -16,11 +16,15 @@ import {
   Line,
 } from "recharts";
 import { dashboardAPI } from "../services/api";
+import { AlertTriangle, Package, TrendingUp, DollarSign, Clock, CheckCircle, FileText } from "lucide-react";
+import AIPoweredFeatures from "../components/AIPoweredFeatures";
 
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [salesData, setSalesData] = useState([]);
   const [topSellingItems, setTopSellingItems] = useState([]);
+  const [lowStockAlerts, setLowStockAlerts] = useState([]);
+  const [recentActivities, setRecentActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -31,15 +35,19 @@ const Dashboard = () => {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const [statsData, salesDataRes, topSellingRes] = await Promise.all([
+      const [statsData, salesDataRes, topSellingRes, lowStockRes, activitiesRes] = await Promise.all([
         dashboardAPI.getStats(),
         dashboardAPI.getSalesData(),
-        dashboardAPI.getTopSellingProducts()
+        dashboardAPI.getTopSellingProducts(),
+        dashboardAPI.getLowStockProducts(),
+        dashboardAPI.getRecentActivities()
       ]);
       
       setStats(statsData);
       setSalesData(salesDataRes);
       setTopSellingItems(topSellingRes);
+      setLowStockAlerts(lowStockRes);
+      setRecentActivities(activitiesRes);
     } catch (err) {
       setError(err.message);
       console.error('Failed to load dashboard data:', err);
@@ -132,10 +140,54 @@ const Dashboard = () => {
               <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
                 📦 {stats.totalProducts} Products
               </span>
+              {lowStockAlerts.length > 0 && (
+                <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
+                  ⚠️ {lowStockAlerts.length} Low Stock Alerts
+                </span>
+              )}
+              <button
+                onClick={() => window.open('/catalogue.pdf', '_blank')}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-lg"
+              >
+                <FileText className="w-4 h-4" />
+                View PDF Catalogue
+              </button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Low Stock Alerts Section */}
+      {lowStockAlerts.length > 0 && (
+        <div className="mb-8 bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-3xl p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <AlertTriangle className="w-8 h-8 text-red-600" />
+            <h2 className="text-2xl font-bold text-red-800">Low Stock Alerts</h2>
+            <span className="px-3 py-1 bg-red-200 text-red-800 rounded-full text-sm font-bold">
+              {lowStockAlerts.length} Items
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {lowStockAlerts.slice(0, 6).map((product) => (
+              <div key={product.product_id} className="bg-white/80 p-4 rounded-2xl border border-red-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-gray-800">{product.product_name}</h3>
+                  <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">
+                    {product.quantity} left
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600 mb-2">{product.product_code}</p>
+                <div className="flex items-center gap-2">
+                  <Package className="w-4 h-4 text-red-500" />
+                  <span className="text-sm text-red-600 font-medium">
+                    Min: {product.min_stock_level || 10}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Main Metrics Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
@@ -467,50 +519,105 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Revenue Trend Chart */}
-      <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100 hover:shadow-2xl transition-all duration-300">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold">💹</span>
+      {/* Third Row - Recent Activities and Revenue Trend */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Recent Activities */}
+        <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100 hover:shadow-2xl transition-all duration-300">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-2xl flex items-center justify-center shadow-lg">
+              <Clock className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h3 className="text-2xl font-bold text-gray-800">
-                Revenue Trend
+              <h3 className="text-xl font-bold text-gray-800">
+                Recent Activities
               </h3>
-              <p className="text-gray-500">Monthly revenue performance</p>
+              <p className="text-gray-500 text-sm">
+                Latest system updates
+              </p>
             </div>
           </div>
-          <div className="text-right">
-            <p className="text-3xl font-bold text-green-600">₹{stats.totalRevenue.toLocaleString()}</p>
-            <p className="text-sm text-green-500">Total revenue</p>
+          <div className="space-y-4">
+            {recentActivities.length > 0 ? (
+              recentActivities.map((activity, index) => (
+                <div key={index} className="flex items-start gap-4 p-4 bg-gray-50 rounded-2xl">
+                  <div className={`w-3 h-3 rounded-full mt-2 ${
+                    activity.type === 'order' ? 'bg-blue-500' :
+                    activity.type === 'product' ? 'bg-green-500' :
+                    activity.type === 'payment' ? 'bg-purple-500' : 'bg-gray-500'
+                  }`}></div>
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-800">{activity.description}</p>
+                    <p className="text-sm text-gray-500">{activity.timestamp}</p>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded-full ${
+                    activity.type === 'order' ? 'bg-blue-100 text-blue-700' :
+                    activity.type === 'product' ? 'bg-green-100 text-green-700' :
+                    activity.type === 'payment' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'
+                  }`}>
+                    {activity.type}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <p>No recent activities</p>
+                <p className="text-sm">Start using the system to see activities</p>
+              </div>
+            )}
           </div>
         </div>
-        <div className="h-48 bg-gradient-to-br from-gray-50 to-green-50 rounded-2xl p-4">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={revenueData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="#64748b" />
-              <YAxis tick={{ fontSize: 12 }} stroke="#64748b" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "white",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: "16px",
-                  boxShadow: "0 10px 25px -5px rgb(0 0 0 / 0.1)",
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="revenue"
-                stroke="#10b981"
-                strokeWidth={4}
-                dot={{ fill: "#10b981", strokeWidth: 2, r: 6 }}
-                activeDot={{ r: 8, stroke: "#10b981", strokeWidth: 2 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+
+        {/* Revenue Trend Chart */}
+        <div className="bg-white p-8 rounded-3xl shadow-xl border border-gray-100 hover:shadow-2xl transition-all duration-300">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center shadow-lg">
+                <DollarSign className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-800">
+                  Revenue Trend
+                </h3>
+                <p className="text-gray-500">Monthly revenue performance</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-green-600">₹{stats.totalRevenue.toLocaleString()}</p>
+              <p className="text-sm text-green-500">Total revenue</p>
+            </div>
+          </div>
+          <div className="h-48 bg-gradient-to-br from-gray-50 to-green-50 rounded-2xl p-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={revenueData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke="#64748b" />
+                <YAxis tick={{ fontSize: 12 }} stroke="#64748b" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "white",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "16px",
+                    boxShadow: "0 10px 25px -5px rgb(0 0 0 / 0.1)",
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="#10b981"
+                  strokeWidth={4}
+                  dot={{ fill: "#10b981", strokeWidth: 2, r: 6 }}
+                  activeDot={{ r: 8, stroke: "#10b981", strokeWidth: 2 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
+      </div>
+
+      {/* AI-Powered Features Section */}
+      <div className="mt-8">
+        <AIPoweredFeatures />
       </div>
     </div>
   );

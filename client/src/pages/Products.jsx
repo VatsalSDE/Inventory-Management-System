@@ -10,6 +10,9 @@ import {
   Star,
   TrendingUp,
   Package,
+  Image as ImageIcon,
+  Camera,
+  FileText,
 } from "lucide-react";
 import { productsAPI } from "../services/api";
 
@@ -23,6 +26,9 @@ const Products = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   const [formData, setFormData] = useState({
     product_name: "",
@@ -33,6 +39,8 @@ const Products = () => {
     quantity: "",
     image_url: "",
   });
+
+  const [formErrors, setFormErrors] = useState({});
 
   useEffect(() => {
     loadProducts();
@@ -68,6 +76,32 @@ const Products = () => {
     }));
   };
 
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImage = async (file) => {
+    // For now, we'll use a mock upload service
+    // In a real app, you'd upload to your server or cloud storage
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // Create a local URL for the uploaded file
+        const localUrl = URL.createObjectURL(file);
+        resolve(localUrl);
+      }, 1000);
+    });
+  };
+
   const resetForm = () => {
     setFormData({
       product_name: "",
@@ -78,11 +112,55 @@ const Products = () => {
       quantity: "",
       image_url: "",
     });
+    setImageFile(null);
+    setImagePreview("");
+  };
+
+  const validateForm = () => {
+    const errors = {};
+    
+    if (!formData.product_name.trim()) {
+      errors.product_name = 'Product name is required';
+    } else if (formData.product_name.trim().length < 3) {
+      errors.product_name = 'Product name must be at least 3 characters';
+    }
+    
+    if (!formData.price || parseFloat(formData.price) <= 0) {
+      errors.price = 'Price must be greater than 0';
+    }
+    
+    if (!formData.quantity || parseInt(formData.quantity) < 0) {
+      errors.quantity = 'Quantity must be 0 or greater';
+    }
+    
+    if (imageFile && imageFile.size > 5 * 1024 * 1024) { // 5MB limit
+      errors.image = 'Image size must be less than 5MB';
+    }
+    
+    return errors;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate form
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+    
     try {
+      setUploading(true);
+      setFormErrors({}); // Clear errors on success
+      
+      let imageUrl = formData.image_url;
+      
+      // Upload image if file is selected
+      if (imageFile) {
+        imageUrl = await uploadImage(imageFile);
+      }
+
       const productCode = generateProductCode(
         formData.product_name,
         formData.category,
@@ -95,7 +173,7 @@ const Products = () => {
         product_code: productCode,
         price: parseFloat(formData.price),
         quantity: parseInt(formData.quantity),
-        image_url: formData.image_url || "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400",
+        image_url: imageUrl,
       };
 
       await productsAPI.create(newProduct);
@@ -105,6 +183,8 @@ const Products = () => {
     } catch (err) {
       setError(err.message);
       console.error('Failed to create product:', err);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -119,12 +199,23 @@ const Products = () => {
       quantity: product.quantity.toString(),
       image_url: product.image_url || "",
     });
+    setImagePreview(product.image_url || "");
+    setImageFile(null);
     setShowEditForm(true);
   };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
     try {
+      setUploading(true);
+      
+      let imageUrl = formData.image_url;
+      
+      // Upload image if file is selected
+      if (imageFile) {
+        imageUrl = await uploadImage(imageFile);
+      }
+
       const productCode = generateProductCode(
         formData.product_name,
         formData.category,
@@ -137,6 +228,7 @@ const Products = () => {
         product_code: productCode,
         price: parseFloat(formData.price),
         quantity: parseInt(formData.quantity),
+        image_url: imageUrl,
       };
 
       await productsAPI.update(editingProduct.product_id, updatedProduct);
@@ -147,6 +239,8 @@ const Products = () => {
     } catch (err) {
       setError(err.message);
       console.error('Failed to update product:', err);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -234,9 +328,18 @@ const Products = () => {
             <h1 className="text-5xl font-bold bg-gradient-to-r from-gray-800 via-emerald-600 to-teal-600 bg-clip-text text-transparent">
               Products
             </h1>
-            <p className="text-gray-600 mt-2 text-lg">
-              Manage your gas stove inventory with style
-            </p>
+                         <p className="text-gray-600 mt-2 text-lg">
+               Manage your gas stove inventory with style
+             </p>
+             <div className="mt-4">
+               <button
+                 onClick={() => window.open('/catalogue.pdf', '_blank')}
+                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg"
+               >
+                 <FileText className="w-4 h-4" />
+                 View PDF Catalogue
+               </button>
+             </div>
           </div>
         </div>
 
@@ -359,11 +462,14 @@ const Products = () => {
           >
             {/* Product Image */}
             <div className="relative h-64 overflow-hidden">
-              <img
-                src={product.image_url || "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400"}
-                alt={product.product_name}
-                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-              />
+                          <img
+              src={product.image_url || "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400"}
+              alt={product.product_name}
+              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+              onError={(e) => {
+                e.target.src = "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400";
+              }}
+            />
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"></div>
 
               {/* Badges */}
@@ -628,19 +734,79 @@ const Products = () => {
                 </div>
               </div>
 
-              {/* Image URL */}
+              {/* Image Upload */}
               <div>
                 <label className="block text-lg font-semibold text-gray-700 mb-3">
-                  Image URL
+                  Product Image
                 </label>
-                <input
-                  type="url"
-                  name="image_url"
-                  value={formData.image_url}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-transparent text-lg"
-                  placeholder="https://example.com/image.jpg"
-                />
+                <div className="space-y-4">
+                  {/* Image Preview */}
+                  {imagePreview && (
+                    <div className="relative">
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="w-32 h-32 object-cover rounded-2xl border-2 border-gray-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImagePreview("");
+                          setImageFile(null);
+                        }}
+                        className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Upload Area */}
+                  <div className="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center hover:border-emerald-400 transition-colors">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      id="image-upload"
+                    />
+                    <label htmlFor="image-upload" className="cursor-pointer">
+                      <div className="space-y-4">
+                        {imagePreview ? (
+                          <Camera className="w-12 h-12 text-emerald-500 mx-auto" />
+                        ) : (
+                          <Upload className="w-12 h-12 text-gray-400 mx-auto" />
+                        )}
+                        <div>
+                          <p className="text-lg font-medium text-gray-700">
+                            {imagePreview ? "Change Image" : "Upload Product Image"}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {imagePreview ? "Click to select a different image" : "Click to browse or drag and drop"}
+                          </p>
+                        </div>
+                        {!imagePreview && (
+                          <p className="text-xs text-gray-400">
+                            PNG, JPG, GIF up to 10MB
+                          </p>
+                        )}
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Fallback URL Input */}
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500 mb-2">Or use an image URL:</p>
+                    <input
+                      type="url"
+                      name="image_url"
+                      value={formData.image_url}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-transparent"
+                      placeholder="https://example.com/image.jpg"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Generated Product Code */}
@@ -674,9 +840,17 @@ const Products = () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-6 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl hover:from-emerald-600 hover:to-teal-600 transition-colors shadow-lg text-lg font-semibold"
+                  disabled={uploading}
+                  className="flex-1 px-6 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl hover:from-emerald-600 hover:to-teal-600 transition-colors shadow-lg text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Create Product
+                  {uploading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      Uploading...
+                    </>
+                  ) : (
+                    "Create Product"
+                  )}
                 </button>
               </div>
             </form>
@@ -777,7 +951,7 @@ const Products = () => {
                           onChange={handleInputChange}
                           className="mr-2 w-4 h-4 text-emerald-500"
                         />
-                        <span className="font-medium">{num}</span>
+                        <span className="text-xs font-medium">{num}</span>
                       </label>
                     ))}
                   </div>
@@ -847,28 +1021,88 @@ const Products = () => {
                 </div>
               </div>
 
-              {/* Image URL */}
+              {/* Image Upload */}
               <div>
                 <label className="block text-lg font-semibold text-gray-700 mb-3">
-                  Image URL
+                  Product Image
                 </label>
-                <input
-                  type="url"
-                  name="image_url"
-                  value={formData.image_url}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-transparent text-lg"
-                  placeholder="https://example.com/image.jpg"
-                />
+                <div className="space-y-4">
+                  {/* Image Preview */}
+                  {imagePreview && (
+                    <div className="relative">
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="w-32 h-32 object-cover rounded-2xl border-2 border-gray-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImagePreview("");
+                          setImageFile(null);
+                        }}
+                        className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Upload Area */}
+                  <div className="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center hover:border-blue-400 transition-colors">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      id="image-upload-edit"
+                    />
+                    <label htmlFor="image-upload-edit" className="cursor-pointer">
+                      <div className="space-y-4">
+                        {imagePreview ? (
+                          <Camera className="w-12 h-12 text-blue-500 mx-auto" />
+                        ) : (
+                          <Upload className="w-12 h-12 text-gray-400 mx-auto" />
+                        )}
+                        <div>
+                          <p className="text-lg font-medium text-gray-700">
+                            {imagePreview ? "Change Image" : "Upload Product Image"}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {imagePreview ? "Click to select a different image" : "Click to browse or drag and drop"}
+                          </p>
+                        </div>
+                        {!imagePreview && (
+                          <p className="text-xs text-gray-400">
+                            PNG, JPG, GIF up to 10MB
+                          </p>
+                        )}
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Fallback URL Input */}
+                  <div className="text-center">
+                    <p className="text-sm text-gray-500 mb-2">Or use an image URL:</p>
+                    <input
+                      type="url"
+                      name="image_url"
+                      value={formData.image_url}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent"
+                      placeholder="https://example.com/image.jpg"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Generated Product Code */}
               {formData.product_name && (
-                <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-200">
-                  <label className="block text-lg font-semibold text-emerald-700 mb-2">
+                <div className="bg-blue-50 p-6 rounded-2xl border border-blue-200">
+                  <label className="block text-lg font-semibold text-blue-700 mb-2">
                     Generated Product Code
                   </label>
-                  <div className="text-2xl font-bold text-emerald-600 font-mono">
+                  <div className="text-2xl font-bold text-blue-600 font-mono">
                     {generateProductCode(
                       formData.product_name,
                       formData.category,
@@ -894,9 +1128,17 @@ const Products = () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-6 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl hover:from-blue-600 hover:to-blue-700 transition-colors shadow-lg text-lg font-semibold"
+                  disabled={uploading}
+                  className="flex-1 px-6 py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl hover:from-blue-600 hover:to-blue-700 transition-colors shadow-lg text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Update Product
+                  {uploading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      Uploading...
+                    </>
+                  ) : (
+                    "Update Product"
+                  )}
                 </button>
               </div>
             </form>

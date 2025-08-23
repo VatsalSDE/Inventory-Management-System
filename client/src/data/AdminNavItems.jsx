@@ -10,7 +10,9 @@ export const AdminNavitems=[
     {label: 'Dashboard' ,icon : dashboard , path:'/admin/dashboard'},
     {label: 'Inventory' ,icon : payments , path:'/admin/inventory'},    
     {label: 'Products' ,icon : dashboard , path:'/admin/products'},    
+    // Catalogue removed - using PDF catalogue instead    
     {label: 'Dealers' ,icon : dealers , path:'/admin/dealers'},    
     {label: 'Orders' ,icon : payments , path:'/admin/orders'},    
-    {label: 'Payments' ,icon :payments , path:'/admin/payments'}    
+    {label: 'Payments' ,icon :payments , path:'/admin/payments'},
+    {label: 'Billing' ,icon : dashboard , path:'/admin/billing'}    
 ]

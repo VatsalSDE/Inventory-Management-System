@@ -181,5 +181,76 @@ export const dashboardAPI = {
       console.error('Error fetching top selling products:', error);
       return [];
     }
+  },
+
+  getLowStockProducts: async () => {
+    try {
+      const products = await productsAPI.getAll();
+      
+      // Get products with low stock (quantity <= min_stock_level or default 10)
+      return products
+        .filter(p => p.quantity <= (p.min_stock_level || 10))
+        .map(product => ({
+          product_id: product.product_id,
+          product_name: product.product_name,
+          product_code: product.product_code,
+          quantity: product.quantity,
+          min_stock_level: product.min_stock_level || 10,
+          price: product.price
+        }))
+        .slice(0, 10); // Limit to 10 items
+    } catch (error) {
+      console.error('Error fetching low stock products:', error);
+      return [];
+    }
+  },
+
+  getRecentActivities: async () => {
+    try {
+      const [orders, products, payments] = await Promise.all([
+        ordersAPI.getAll(),
+        productsAPI.getAll(),
+        paymentsAPI.getAll()
+      ]);
+      
+      const activities = [];
+      
+      // Add recent orders
+      orders.slice(0, 5).forEach(order => {
+        activities.push({
+          type: 'order',
+          description: `New order #${order.order_code} received`,
+          timestamp: new Date(order.created_at).toLocaleString()
+        });
+      });
+      
+      // Add recent payments
+      payments.slice(0, 3).forEach(payment => {
+        activities.push({
+          type: 'payment',
+          description: `Payment received: ₹${payment.paid_amount}`,
+          timestamp: new Date(payment.payment_date).toLocaleString()
+        });
+      });
+      
+      // Add product updates
+      products.slice(0, 2).forEach(product => {
+        if (product.quantity < 10) {
+          activities.push({
+            type: 'product',
+            description: `Low stock alert: ${product.product_name}`,
+            timestamp: new Date().toLocaleString()
+          });
+        }
+      });
+      
+      // Sort by timestamp and return recent activities
+      return activities
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        .slice(0, 8);
+    } catch (error) {
+      console.error('Error fetching recent activities:', error);
+      return [];
+    }
   }
 };

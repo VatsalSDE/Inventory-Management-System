@@ -4,9 +4,11 @@ import Login from "../auth/Login.jsx";
 import Dashboard from "../pages/Dashboard.jsx";
 import Products from "../pages/Products.jsx";
 import Inventory from "../pages/Inventory.jsx";
+// Catalogue page removed - using PDF catalogue instead
 import Dealers from "../pages/Dealers.jsx";
 import Orders from "../pages/Orders.jsx";
 import Payments from "../pages/Payments.jsx";
+import Billing from "../pages/Billing.jsx";
 import React from "react";
 
 import { isAuthenticated } from "../apiClient";
@@ -41,9 +43,11 @@ const Adminroutes = () => {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="products" element={<Products />} />
         <Route path="inventory" element={<Inventory />} />
+        {/* Catalogue route removed - using PDF catalogue instead */}
         <Route path="dealers" element={<Dealers />} />
         <Route path="orders" element={<Orders />} />
         <Route path="payments" element={<Payments />} />
+        <Route path="billing" element={<Billing />} />
       </Route>
       <Route path="/auth/login" element={<Login />} />
     </Routes>

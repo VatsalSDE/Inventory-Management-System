@@ -11,28 +11,25 @@ import {
   CheckCircle,
   Clock,
   BarChart3,
+  Eye,
+  Table,
+  Grid3X3,
+  Filter,
+  Download,
+  FileText,
 } from "lucide-react";
 import { productsAPI } from "../services/api";
 
 const Inventory = () => {
-  const [showAddForm, setShowAddForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [stockFilter, setStockFilter] = useState("all");
+  const [viewMode, setViewMode] = useState("table"); // "table" or "grid"
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  const [formData, setFormData] = useState({
-    product_name: "",
-    product_code: "",
-    description: "",
-    price: "",
-    quantity: "",
-    category: "",
-    no_burners: "",
-    type_burner: "",
-    image_url: "",
-    min_stock_level: "10",
-  });
+  const [sortBy, setSortBy] = useState("name");
+  const [sortOrder, setSortOrder] = useState("asc");
 
   useEffect(() => {
     loadProducts();
@@ -51,63 +48,6 @@ const Inventory = () => {
     }
   };
 
-  const generateProductCode = (productName) => {
-    const prefix = productName
-      .split(" ")
-      .map((word) => word.substring(0, 3))
-      .join("")
-      .toUpperCase();
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    return `${prefix}-${random}`;
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const resetForm = () => {
-    setFormData({
-      product_name: "",
-      product_code: "",
-      description: "",
-      price: "",
-      quantity: "",
-      category: "",
-      no_burners: "",
-      type_burner: "",
-      image_url: "",
-      min_stock_level: "10",
-    });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const productCode = formData.product_code || generateProductCode(formData.product_name);
-
-      const newProduct = {
-        ...formData,
-        product_code: productCode,
-        price: parseFloat(formData.price),
-        quantity: parseInt(formData.quantity),
-        no_burners: parseInt(formData.no_burners),
-        min_stock_level: parseInt(formData.min_stock_level),
-      };
-
-      await productsAPI.create(newProduct);
-      await loadProducts();
-      resetForm();
-      setShowAddForm(false);
-    } catch (err) {
-      setError(err.message);
-      console.error('Failed to create product:', err);
-    }
-  };
-
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
       try {
@@ -120,14 +60,63 @@ const Inventory = () => {
     }
   };
 
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch =
-      product.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.product_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.category?.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredProducts = products
+    .filter((product) => {
+      const matchesSearch =
+        product.product_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.product_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.category?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesCategory =
+        categoryFilter === "all" ||
+        product.category?.toLowerCase() === categoryFilter.toLowerCase();
+      
+      const matchesStock = (() => {
+        switch (stockFilter) {
+          case "low":
+            return product.quantity <= (product.min_stock_level || 10);
+          case "out":
+            return product.quantity === 0;
+          case "normal":
+            return product.quantity > (product.min_stock_level || 10);
+          default:
+            return true;
+        }
+      })();
 
-    return matchesSearch;
-  });
+      return matchesSearch && matchesCategory && matchesStock;
+    })
+    .sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (sortBy) {
+        case "name":
+          aValue = a.product_name?.toLowerCase() || "";
+          bValue = b.product_name?.toLowerCase() || "";
+          break;
+        case "price":
+          aValue = parseFloat(a.price) || 0;
+          bValue = parseFloat(b.price) || 0;
+          break;
+        case "quantity":
+          aValue = parseInt(a.quantity) || 0;
+          bValue = parseInt(b.quantity) || 0;
+          break;
+        case "stock_value":
+          aValue = (parseFloat(a.price) || 0) * (parseInt(a.quantity) || 0);
+          bValue = (parseFloat(b.price) || 0) * (parseInt(b.quantity) || 0);
+          break;
+        default:
+          aValue = a.product_name?.toLowerCase() || "";
+          bValue = b.product_name?.toLowerCase() || "";
+      }
+
+      if (sortOrder === "asc") {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
 
   const totalProducts = products.length;
   const totalValue = products.reduce((sum, p) => sum + (parseFloat(p.price || 0) * parseInt(p.quantity || 0)), 0);
@@ -138,6 +127,28 @@ const Inventory = () => {
     if (product.quantity === 0) return { status: "Out of Stock", color: "bg-red-100 text-red-800 border-red-200", icon: <AlertTriangle className="w-4 h-4" /> };
     if (product.quantity <= (product.min_stock_level || 10)) return { status: "Low Stock", color: "bg-yellow-100 text-yellow-800 border-yellow-200", icon: <Clock className="w-4 h-4" /> };
     return { status: "In Stock", color: "bg-green-100 text-green-800 border-green-200", icon: <CheckCircle className="w-4 h-4" /> };
+  };
+
+  const exportToCSV = () => {
+    const headers = ["Product Code", "Product Name", "Category", "Price", "Quantity", "Stock Value", "Status"];
+    const csvData = filteredProducts.map(product => [
+      product.product_code,
+      product.product_name,
+      product.category,
+      product.price,
+      product.quantity,
+      (parseFloat(product.price || 0) * parseInt(product.quantity || 0)).toFixed(2),
+      getStockStatus(product).status
+    ]);
+    
+    const csvContent = [headers, ...csvData].map(row => row.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "inventory_report.csv";
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
   if (loading) {
@@ -191,6 +202,15 @@ const Inventory = () => {
             <p className="text-gray-600 mt-2 text-lg">
               Monitor and manage your product stock levels
             </p>
+            <div className="mt-4">
+              <button
+                onClick={() => window.open('/catalogue.pdf', '_blank')}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors shadow-lg"
+              >
+                <FileText className="w-4 h-4" />
+                View PDF Catalogue
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -267,6 +287,7 @@ const Inventory = () => {
       {/* Controls */}
       <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-6 mb-8">
         <div className="flex flex-col lg:flex-row gap-4 items-center">
+          {/* Search */}
           <div className="flex-1 relative">
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
@@ -278,321 +299,281 @@ const Inventory = () => {
             />
           </div>
 
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-4 rounded-2xl hover:from-purple-600 hover:to-pink-600 transition-all duration-300 flex items-center gap-3 shadow-lg hover:shadow-xl transform hover:scale-105 text-lg font-semibold"
-          >
-            <Plus className="w-6 h-6" />
-            Add Product
-          </button>
+          {/* Filters */}
+          <div className="flex gap-3">
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="px-4 py-4 bg-gray-50/80 border border-gray-200/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-gray-700 text-lg"
+            >
+              <option value="all">All Categories</option>
+              <option value="steel">Steel</option>
+              <option value="glass">Glass</option>
+            </select>
+
+            <select
+              value={stockFilter}
+              onChange={(e) => setStockFilter(e.target.value)}
+              className="px-4 py-4 bg-gray-50/80 border border-gray-200/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-gray-700 text-lg"
+            >
+              <option value="all">All Stock Levels</option>
+              <option value="low">Low Stock</option>
+              <option value="out">Out of Stock</option>
+              <option value="normal">Normal Stock</option>
+            </select>
+
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-4 py-4 bg-gray-50/80 border border-gray-200/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 text-gray-700 text-lg"
+            >
+              <option value="name">Sort by Name</option>
+              <option value="price">Sort by Price</option>
+              <option value="quantity">Sort by Quantity</option>
+              <option value="stock_value">Sort by Stock Value</option>
+            </select>
+
+            <button
+              onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+              className="px-4 py-4 bg-gray-50/80 border border-gray-200/50 rounded-2xl hover:bg-gray-100 transition-colors"
+            >
+              {sortOrder === "asc" ? "↑" : "↓"}
+            </button>
+          </div>
+        </div>
+
+        {/* View Controls */}
+        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-gray-600">View Mode:</span>
+            <div className="flex bg-gray-100 rounded-xl p-1">
+              <button
+                onClick={() => setViewMode("table")}
+                className={`px-4 py-2 rounded-lg transition-all ${
+                  viewMode === "table"
+                    ? "bg-white text-purple-600 shadow-md"
+                    : "text-gray-600 hover:text-gray-800"
+                }`}
+              >
+                <Table className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setViewMode("grid")}
+                className={`px-4 py-2 rounded-lg transition-all ${
+                  viewMode === "grid"
+                    ? "bg-white text-purple-600 shadow-md"
+                    : "text-gray-600 hover:text-gray-800"
+                }`}
+              >
+                <Grid3X3 className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={exportToCSV}
+              className="px-6 py-3 bg-green-500 text-white rounded-2xl hover:bg-green-600 transition-colors flex items-center gap-2"
+            >
+              <Download className="w-5 h-5" />
+              Export CSV
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Products Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-        {filteredProducts.map((product) => {
-          const stockStatus = getStockStatus(product);
-          return (
-            <div
-              key={product.product_id}
-              className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 overflow-hidden hover:shadow-2xl transition-all duration-300 group"
-            >
-              {/* Header */}
-              <div className="bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 p-6 text-white relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
-                <div className="relative z-10 flex items-start justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 bg-white/20 rounded-2xl border-3 border-white shadow-xl flex items-center justify-center">
-                      <Package className="w-8 h-8 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-2xl font-bold">{product.product_name}</h3>
-                      <p className="text-pink-100 text-lg">{product.product_code}</p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium">
+      {/* Products Display */}
+      {viewMode === "table" ? (
+        /* Table View */
+        <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 text-white">
+                <tr>
+                  <th className="px-6 py-4 text-left font-semibold">Product</th>
+                  <th className="px-6 py-4 text-left font-semibold">Category</th>
+                  <th className="px-6 py-4 text-left font-semibold">Price</th>
+                  <th className="px-6 py-4 text-left font-semibold">Quantity</th>
+                  <th className="px-6 py-4 text-left font-semibold">Stock Value</th>
+                  <th className="px-6 py-4 text-left font-semibold">Status</th>
+                  <th className="px-6 py-4 text-left font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredProducts.map((product) => {
+                  const stockStatus = getStockStatus(product);
+                  const stockValue = (parseFloat(product.price || 0) * parseInt(product.quantity || 0)).toFixed(2);
+                  
+                  return (
+                    <tr key={product.product_id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-pink-100 rounded-xl flex items-center justify-center">
+                            <Package className="w-6 h-6 text-purple-600" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">{product.product_name}</p>
+                            <p className="text-sm text-gray-500">{product.product_code}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-medium capitalize">
                           {product.category || 'Uncategorized'}
                         </span>
-                        <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium">
-                          ₹{parseFloat(product.price || 0).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="font-semibold text-gray-900">₹{parseFloat(product.price || 0).toLocaleString()}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-gray-900">{product.quantity || 0}</span>
+                          {product.min_stock_level && (
+                            <span className="text-xs text-gray-500">/ {product.min_stock_level}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="font-semibold text-gray-900">₹{stockValue}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${stockStatus.color}`}>
+                          {stockStatus.icon}
+                          {stockStatus.status}
                         </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex gap-2">
+                          <button className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors">
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          
+          {filteredProducts.length === 0 && (
+            <div className="text-center py-16">
+              <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-500 mb-2">
+                No products found
+              </h3>
+              <p className="text-gray-400">
+                Try adjusting your search criteria or add new products from the Products page.
+              </p>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Grid View (Original Card Layout) */
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+          {filteredProducts.map((product) => {
+            const stockStatus = getStockStatus(product);
+            return (
+              <div
+                key={product.product_id}
+                className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 overflow-hidden hover:shadow-2xl transition-all duration-300 group"
+              >
+                {/* Header */}
+                <div className="bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 p-6 text-white relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
+                  <div className="relative z-10 flex items-start justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 bg-white/20 rounded-2xl border-3 border-white shadow-xl flex items-center justify-center">
+                        <Package className="w-8 h-8 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-bold">{product.product_name}</h3>
+                        <p className="text-pink-100 text-lg">{product.product_code}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium">
+                            {product.category || 'Uncategorized'}
+                          </span>
+                          <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium">
+                            ₹{parseFloat(product.price || 0).toLocaleString()}
+                          </span>
+                        </div>
                       </div>
                     </div>
+                    <div className="text-right">
+                      <span
+                        className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${stockStatus.color}`}
+                      >
+                        {stockStatus.icon}
+                        {stockStatus.status}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <span
-                      className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${stockStatus.color}`}
+                </div>
+
+                {/* Content */}
+                <div className="p-6">
+                  <div className="grid grid-cols-3 gap-4 mb-6">
+                    <div className="text-center p-4 bg-purple-50 rounded-2xl border border-purple-200">
+                      <p className="text-2xl font-bold text-purple-600">
+                        {product.quantity || 0}
+                      </p>
+                      <p className="text-xs text-purple-500 font-medium">
+                        In Stock
+                      </p>
+                    </div>
+                    <div className="text-center p-4 bg-pink-50 rounded-2xl border border-pink-200">
+                      <p className="text-2xl font-bold text-pink-600">
+                        {product.no_burners || 'N/A'}
+                      </p>
+                      <p className="text-xs text-pink-500 font-medium">
+                        Burners
+                      </p>
+                    </div>
+                    <div className="text-center p-4 bg-rose-50 rounded-2xl border border-rose-200">
+                      <p className="text-2xl font-bold text-rose-600">
+                        ₹{(parseFloat(product.price || 0) * parseInt(product.quantity || 0)).toLocaleString()}
+                      </p>
+                      <p className="text-xs text-rose-500 font-medium">
+                        Total Value
+                      </p>
+                    </div>
+                  </div>
+
+                  {product.description && (
+                    <div className="mb-6 p-4 bg-gray-50 rounded-2xl">
+                      <p className="text-gray-700">{product.description}</p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => handleDelete(product.product_id)}
+                      className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-3 px-4 rounded-2xl hover:from-red-600 hover:to-red-700 transition-colors shadow-lg transform hover:scale-105 text-lg font-semibold flex items-center justify-center gap-2"
                     >
-                      {stockStatus.icon}
-                      {stockStatus.status}
-                    </span>
+                      <Trash2 className="w-5 h-5" />
+                      Delete
+                    </button>
                   </div>
                 </div>
               </div>
-
-              {/* Content */}
-              <div className="p-6">
-                <div className="grid grid-cols-3 gap-4 mb-6">
-                  <div className="text-center p-4 bg-purple-50 rounded-2xl border border-purple-200">
-                    <p className="text-2xl font-bold text-purple-600">
-                      {product.quantity || 0}
-                    </p>
-                    <p className="text-xs text-purple-500 font-medium">
-                      In Stock
-                    </p>
-                  </div>
-                  <div className="text-center p-4 bg-pink-50 rounded-2xl border border-pink-200">
-                    <p className="text-2xl font-bold text-pink-600">
-                      {product.no_burners || 'N/A'}
-                    </p>
-                    <p className="text-xs text-pink-500 font-medium">
-                      Burners
-                    </p>
-                  </div>
-                  <div className="text-center p-4 bg-rose-50 rounded-2xl border border-rose-200">
-                    <p className="text-2xl font-bold text-rose-600">
-                      ₹{(parseFloat(product.price || 0) * parseInt(product.quantity || 0)).toLocaleString()}
-                    </p>
-                    <p className="text-xs text-rose-500 font-medium">
-                      Total Value
-                    </p>
-                  </div>
-                </div>
-
-                {product.description && (
-                  <div className="mb-6 p-4 bg-gray-50 rounded-2xl">
-                    <p className="text-gray-700">{product.description}</p>
-                  </div>
-                )}
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => handleDelete(product.product_id)}
-                    className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-3 px-4 rounded-2xl hover:from-red-600 hover:to-red-700 transition-colors shadow-lg transform hover:scale-105 text-lg font-semibold flex items-center justify-center gap-2"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* No Results */}
-      {filteredProducts.length === 0 && (
+      {filteredProducts.length === 0 && viewMode === "grid" && (
         <div className="text-center py-16">
           <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-gray-500 mb-2">
             No products found
           </h3>
           <p className="text-gray-400">
-            Try adjusting your search criteria or add new products to get
-            started.
+            Try adjusting your search criteria or add new products from the Products page.
           </p>
-        </div>
-      )}
-
-      {/* Add Product Modal */}
-      {showAddForm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-white/50">
-            <div className="bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 p-8 text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-3xl font-bold">Add New Product</h2>
-                  <p className="text-pink-100 mt-1">
-                    Add a new product to inventory
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowAddForm(false);
-                    resetForm();
-                  }}
-                  className="p-3 rounded-2xl bg-white/20 hover:bg-white/30 transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-            </div>
-
-            <form onSubmit={handleSubmit} className="p-8 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-lg font-semibold text-gray-700 mb-3">
-                    Product Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="product_name"
-                    value={formData.product_name}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent text-lg"
-                    placeholder="Enter product name"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-lg font-semibold text-gray-700 mb-3">
-                    Product Code
-                  </label>
-                  <input
-                    type="text"
-                    name="product_code"
-                    value={formData.product_code}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent text-lg"
-                    placeholder="Leave empty for auto-generation"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-lg font-semibold text-gray-700 mb-3">
-                  Description
-                </label>
-                <textarea
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  rows="3"
-                  className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent text-lg resize-none"
-                  placeholder="Product description"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-lg font-semibold text-gray-700 mb-3">
-                    Price <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    name="price"
-                    value={formData.price}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent text-lg"
-                    placeholder="0.00"
-                    step="0.01"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-lg font-semibold text-gray-700 mb-3">
-                    Quantity <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    name="quantity"
-                    value={formData.quantity}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent text-lg"
-                    placeholder="0"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-lg font-semibold text-gray-700 mb-3">
-                    Min Stock Level
-                  </label>
-                  <input
-                    type="number"
-                    name="min_stock_level"
-                    value={formData.min_stock_level}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent text-lg"
-                    placeholder="10"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-lg font-semibold text-gray-700 mb-3">
-                    Category
-                  </label>
-                  <select
-                    name="category"
-                    value={formData.category}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent text-lg"
-                  >
-                    <option value="">Select Category</option>
-                    <option value="Gas Stove">Gas Stove</option>
-                    <option value="Burner">Burner</option>
-                    <option value="Accessory">Accessory</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-lg font-semibold text-gray-700 mb-3">
-                    Number of Burners
-                  </label>
-                  <input
-                    type="number"
-                    name="no_burners"
-                    value={formData.no_burners}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent text-lg"
-                    placeholder="2"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-lg font-semibold text-gray-700 mb-3">
-                    Burner Type
-                  </label>
-                  <input
-                    type="text"
-                    name="type_burner"
-                    value={formData.type_burner}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent text-lg"
-                    placeholder="Brass/Steel"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-lg font-semibold text-gray-700 mb-3">
-                    Image URL
-                  </label>
-                  <input
-                    type="url"
-                    name="image_url"
-                    value={formData.image_url}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-transparent text-lg"
-                    placeholder="https://example.com/image.jpg"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-4 pt-6 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddForm(false);
-                    resetForm();
-                  }}
-                  className="flex-1 px-6 py-4 border border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 transition-colors text-lg font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-2xl hover:from-purple-600 hover:to-pink-600 transition-colors shadow-lg text-lg font-semibold"
-                >
-                  Add Product
-                </button>
-              </div>
-            </form>
-          </div>
         </div>
       )}
     </div>
