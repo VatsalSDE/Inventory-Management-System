@@ -19,6 +19,7 @@ import { dashboardAPI } from "../services/api";
 import { AlertTriangle, Package, TrendingUp, DollarSign, Clock, CheckCircle, FileText } from "lucide-react";
 import AIPoweredFeatures from "../components/AIPoweredFeatures";
 
+
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [salesData, setSalesData] = useState([]);
@@ -300,7 +301,7 @@ const Dashboard = () => {
                   Low Stock
                 </p>
                 <p className="text-2xl font-bold text-red-600">{stats.lowStockProducts}</p>
-                <p className="text-xs text-red-500">Need attention</p>
+                    <p className="text-xs text-red-500">Below threshold</p>
               </div>
               <div className="text-center p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200">
                 <div className="text-xs text-gray-700 font-medium mb-1">
@@ -616,9 +617,9 @@ const Dashboard = () => {
       </div>
 
       {/* AI-Powered Features Section */}
-      <div className="mt-8">
-        <AIPoweredFeatures />
-      </div>
+      <AIPoweredFeatures />
+
+
     </div>
   );
 };

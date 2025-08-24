@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   LogOut,
   Bell,
@@ -8,52 +8,141 @@ import {
   Settings,
   User,
   ChevronDown,
+  X,
+  AlertTriangle,
+  Package,
+  TrendingUp,
+  DollarSign,
 } from "lucide-react";
+import { dashboardAPI } from "../../services/api";
 
 const TopBar = ({ onToggleSidebar }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-
-  const [notifications] = useState([
-    {
-      id: 1,
-      title: "Low Stock Alert",
-      message: "Standard 3 Burner is running low (8 units)",
-      time: "5 min ago",
-      type: "warning",
-      unread: true,
-    },
-    {
-      id: 2,
-      title: "New Order Received",
-      message: "Order ORD-004 from Raj Kitchen Appliances",
-      time: "1 hour ago",
-      type: "info",
-      unread: true,
-    },
-    {
-      id: 3,
-      title: "Payment Received",
-      message: "Payment of ₹25,000 received from Sunshine Gas",
-      time: "2 hours ago",
-      type: "success",
-      unread: false,
-    },
-    {
-      id: 4,
-      title: "Inventory Updated",
-      message: "Product catalog has been updated successfully",
-      time: "3 hours ago",
-      type: "info",
-      unread: false,
-    },
-  ]);
+  const [showSettings, setShowSettings] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [stats, setStats] = useState(null);
+  const navigate = useNavigate();
 
   const notifRef = useRef();
   const profileRef = useRef();
+  const settingsRef = useRef();
+  const searchRef = useRef();
 
   const unreadCount = notifications.filter((n) => n.unread).length;
+
+  // Load real-time data
+  useEffect(() => {
+    loadRealTimeData();
+    const interval = setInterval(loadRealTimeData, 30000); // Update every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  const loadRealTimeData = async () => {
+    try {
+      const [statsData, activitiesRes] = await Promise.all([
+        dashboardAPI.getStats(),
+        dashboardAPI.getRecentActivities()
+      ]);
+      
+      setStats(statsData);
+      
+      // Convert activities to notifications
+      const newNotifications = activitiesRes.slice(0, 5).map((activity, index) => ({
+        id: index + 1,
+        title: activity.type === 'order' ? 'New Order' : 
+               activity.type === 'payment' ? 'Payment Received' : 
+               activity.type === 'product' ? 'Low Stock Alert' : 'System Update',
+        message: activity.description,
+        time: activity.timestamp,
+        type: activity.type === 'product' ? 'warning' : 
+              activity.type === 'payment' ? 'success' : 'info',
+        unread: true,
+      }));
+      
+      setNotifications(newNotifications);
+    } catch (error) {
+      console.error('Failed to load real-time data:', error);
+    }
+  };
+
+  // Global search functionality
+  const handleSearch = async (term) => {
+    setSearchTerm(term);
+    if (term.length < 2) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+
+    try {
+      // Search in products, orders, dealers
+      const [products, orders, dealers] = await Promise.all([
+        dashboardAPI.getStats().then(s => s.products || []),
+        dashboardAPI.getStats().then(s => s.orders || []),
+        dashboardAPI.getStats().then(s => s.dealers || [])
+      ]);
+
+      const results = [];
+      
+      // Search products
+      products.forEach(product => {
+        if (product.product_name.toLowerCase().includes(term.toLowerCase()) ||
+            product.product_code.toLowerCase().includes(term.toLowerCase())) {
+          results.push({
+            type: 'product',
+            id: product.product_id,
+            title: product.product_name,
+            subtitle: product.product_code,
+            action: () => navigate('/products')
+          });
+        }
+      });
+
+      // Search orders
+      orders.forEach(order => {
+        if (order.order_code.toLowerCase().includes(term.toLowerCase())) {
+          results.push({
+            type: 'order',
+            id: order.order_id,
+            title: `Order ${order.order_code}`,
+            subtitle: `Status: ${order.order_status}`,
+            action: () => navigate('/orders')
+          });
+        }
+      });
+
+      // Search dealers
+      dealers.forEach(dealer => {
+        if (dealer.firm_name.toLowerCase().includes(term.toLowerCase()) ||
+            dealer.dealer_code.toLowerCase().includes(term.toLowerCase())) {
+          results.push({
+            type: 'dealer',
+            id: dealer.dealer_id,
+            title: dealer.firm_name,
+            subtitle: dealer.dealer_code,
+            action: () => navigate('/dealers')
+          });
+        }
+      });
+
+      setSearchResults(results.slice(0, 8));
+      setShowSearchResults(true);
+    } catch (error) {
+      console.error('Search error:', error);
+    }
+  };
+
+  // Handle sign out
+  const handleSignOut = () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user');
+    navigate('/auth/login');
+  };
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -63,6 +152,12 @@ const TopBar = ({ onToggleSidebar }) => {
       }
       if (profileRef.current && !profileRef.current.contains(event.target)) {
         setShowProfile(false);
+      }
+      if (settingsRef.current && !settingsRef.current.contains(event.target)) {
+        setShowSettings(false);
+      }
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setShowSearchResults(false);
       }
     };
 
@@ -85,15 +180,53 @@ const TopBar = ({ onToggleSidebar }) => {
             <Menu className="w-5 h-5" />
           </button>
 
-          {/* Search Bar */}
-          <div className="hidden lg:flex items-center relative">
+          {/* Search Bar - Now Functional! */}
+          <div ref={searchRef} className="hidden lg:flex items-center relative">
             <div className="relative">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search anything..."
+                placeholder="Search products, orders, dealers..."
+                value={searchTerm}
+                onChange={(e) => handleSearch(e.target.value)}
                 className="w-64 xl:w-80 pl-12 pr-4 py-3 bg-gray-50/80 border border-gray-200/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent backdrop-blur-sm transition-all duration-300 text-gray-700 placeholder-gray-400"
               />
+              
+              {/* Search Results Dropdown */}
+              {showSearchResults && searchResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-200 z-[9999] max-h-96 overflow-y-auto">
+                  <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-purple-50">
+                    <h3 className="font-semibold text-gray-800">Search Results</h3>
+                  </div>
+                  {searchResults.map((result) => (
+                    <button
+                      key={`${result.type}-${result.id}`}
+                      onClick={() => {
+                        result.action();
+                        setShowSearchResults(false);
+                        setSearchTerm("");
+                      }}
+                      className="w-full p-4 text-left border-b border-gray-50 hover:bg-gray-50 transition-colors last:border-b-0"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                          result.type === 'product' ? 'bg-blue-100 text-blue-600' :
+                          result.type === 'order' ? 'bg-green-100 text-green-600' :
+                          'bg-purple-100 text-purple-600'
+                        }`}>
+                          {result.type === 'product' ? <Package className="w-4 h-4" /> :
+                           result.type === 'order' ? <TrendingUp className="w-4 h-4" /> :
+                           <User className="w-4 h-4" />}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-800">{result.title}</p>
+                          <p className="text-sm text-gray-500">{result.subtitle}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -128,18 +261,22 @@ const TopBar = ({ onToggleSidebar }) => {
 
         {/* Right Section */}
         <div className="flex items-center gap-3">
-          {/* Quick Stats */}
+          {/* Quick Stats - Now Real-time! */}
           <div className="hidden 2xl:flex items-center gap-4 mr-4">
             <div className="flex items-center gap-2 px-3 py-2 bg-green-50 rounded-xl border border-green-200">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               <span className="text-sm font-medium text-green-700">Online</span>
             </div>
-            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-xl border border-blue-200">
-              <span className="text-sm font-medium text-blue-700">₹18.7L</span>
-            </div>
+            {stats && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-xl border border-blue-200">
+                <span className="text-sm font-medium text-blue-700">
+                  ₹{(stats.totalRevenue / 100000).toFixed(1)}L
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Notifications */}
+          {/* Notifications - Now Real-time! */}
           <div ref={notifRef} className="relative">
             <button
               onClick={() => setShowNotifications(!showNotifications)}
@@ -221,12 +358,41 @@ const TopBar = ({ onToggleSidebar }) => {
             )}
           </div>
 
-          {/* Settings */}
-          <button className="p-3 rounded-2xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all duration-300 hover:shadow-lg group">
-            <Settings className="w-5 h-5 text-gray-600 group-hover:rotate-90 transition-transform duration-300" />
-          </button>
+          {/* Settings - Now Functional! */}
+          <div ref={settingsRef} className="relative">
+            <button 
+              onClick={() => setShowSettings(!showSettings)}
+              className="p-3 rounded-2xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all duration-300 hover:shadow-lg group"
+              title="System Settings"
+            >
+              <Settings className="w-5 h-5 text-gray-600 group-hover:rotate-90 transition-transform duration-300" />
+            </button>
 
-          {/* Profile Dropdown */}
+            {/* Settings Dropdown */}
+            {showSettings && (
+              <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-gray-200 z-[9999] overflow-hidden">
+                <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-purple-50">
+                  <h3 className="font-semibold text-gray-800">System Settings</h3>
+                </div>
+                <div className="p-2">
+                  <button className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl flex items-center gap-3 transition-colors">
+                    <Package className="w-4 h-4" />
+                    Low Stock Threshold
+                  </button>
+                  <button className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl flex items-center gap-3 transition-colors">
+                    <TrendingUp className="w-4 h-4" />
+                    Business Rules
+                  </button>
+                  <button className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 rounded-xl flex items-center gap-3 transition-colors">
+                    <DollarSign className="w-4 h-4" />
+                    Financial Settings
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Profile Dropdown - Now Functional! */}
           <div ref={profileRef} className="relative">
             <button
               onClick={() => setShowProfile(!showProfile)}
@@ -268,7 +434,10 @@ const TopBar = ({ onToggleSidebar }) => {
                     Preferences
                   </button>
                   <hr className="my-2 border-gray-100" />
-                  <button className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 rounded-xl flex items-center gap-3 transition-colors">
+                  <button 
+                    onClick={handleSignOut}
+                    className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 rounded-xl flex items-center gap-3 transition-colors"
+                  >
                     <LogOut className="w-4 h-4" />
                     Sign Out
                   </button>

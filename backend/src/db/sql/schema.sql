@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS payments (
     dealer_id INTEGER REFERENCES dealers(dealer_id),
     order_id INTEGER REFERENCES orders(order_id),
     paid_amount NUMERIC(10, 2) NOT NULL,
-    method TEXT CHECK (method IN ('Cash', 'UPI', 'Card', 'NEFT', 'Online')),
+    method TEXT CHECK (method IN ('Cash', 'UPI', 'Card', 'NEFT', 'Online', 'Bank Transfer', 'Cheque')),
     transaction_id VARCHAR UNIQUE NOT NULL,
     payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

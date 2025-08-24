@@ -93,6 +93,17 @@ const Orders = () => {
       const product = products.find(p => p.product_id.toString() === value);
       if (product) {
         newItems[index].unit_price = product.price.toString();
+        // Reset quantity when product changes
+        newItems[index].quantity = "";
+      }
+    }
+    
+    // Validate quantity against available stock
+    if (field === 'quantity') {
+      const product = products.find(p => p.product_id.toString() === newItems[index].product_id);
+      if (product && parseInt(value) > product.quantity) {
+        alert(`Cannot order more than available stock. Available: ${product.quantity}`);
+        newItems[index].quantity = product.quantity.toString();
       }
     }
     
@@ -133,6 +144,17 @@ const Orders = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Validate stock levels before submitting
+      for (const item of formData.items) {
+        if (item.product_id && item.quantity) {
+          const product = products.find(p => p.product_id.toString() === item.product_id);
+          if (product && parseInt(item.quantity) > product.quantity) {
+            alert(`Cannot order ${item.quantity} of ${product.product_name}. Available stock: ${product.quantity}`);
+            return;
+          }
+        }
+      }
+
       const orderCode = formData.order_code || generateOrderCode();
       const totalAmount = calculateTotal();
 
@@ -153,22 +175,47 @@ const Orders = () => {
     }
   };
 
-  const handleEdit = (order) => {
-    setEditingOrder(order);
-    setFormData({
-      order_code: order.order_code,
-      dealer_id: order.dealer_id.toString(),
-      order_status: order.order_status,
-      total_amount: order.total_amount.toString(),
-      delivery_date: order.delivery_date ? order.delivery_date.split('T')[0] : "",
-      items: [{ product_id: "", quantity: "", unit_price: "" }]
-    });
-    setShowEditForm(true);
+  const handleEdit = async (order) => {
+    try {
+      setEditingOrder(order);
+      
+      // Load order items
+      const items = await ordersAPI.getItems(order.order_id);
+      
+      setFormData({
+        order_code: order.order_code,
+        dealer_id: order.dealer_id.toString(),
+        order_status: order.order_status,
+        total_amount: order.total_amount.toString(),
+        delivery_date: order.delivery_date ? order.delivery_date.split('T')[0] : "",
+        items: items.length > 0 ? items.map(item => ({
+          product_id: item.product_id.toString(),
+          quantity: item.quantity.toString(),
+          unit_price: item.unit_price.toString()
+        })) : [{ product_id: "", quantity: "", unit_price: "" }]
+      });
+      
+      setShowEditForm(true);
+    } catch (err) {
+      console.error('Failed to load order items:', err);
+      setError('Failed to load order items for editing');
+    }
   };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
     try {
+      // Validate stock levels before updating
+      for (const item of formData.items) {
+        if (item.product_id && item.quantity) {
+          const product = products.find(p => p.product_id.toString() === item.product_id);
+          if (product && parseInt(item.quantity) > product.quantity) {
+            alert(`Cannot order ${item.quantity} of ${product.product_name}. Available stock: ${product.quantity}`);
+            return;
+          }
+        }
+      }
+
       const totalAmount = calculateTotal();
 
       const updatedOrder = {
@@ -674,7 +721,7 @@ const Orders = () => {
                           <option value="">Select Product</option>
                           {products.map(product => (
                             <option key={product.product_id} value={product.product_id}>
-                              {product.product_name} - ₹{product.price}
+                              {product.product_name} - ₹{product.price} (Stock: {product.quantity})
                             </option>
                           ))}
                         </select>
@@ -759,8 +806,222 @@ const Orders = () => {
         </div>
       )}
 
-      {/* Order Items Modal */}
-      {showItemsModal && selectedOrder && (
+             {/* Edit Order Modal */}
+       {showEditForm && editingOrder && (
+         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+           <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-white/50">
+             <div className="bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 p-8 text-white">
+               <div className="flex items-center justify-between">
+                 <div>
+                   <h2 className="text-3xl font-bold">Edit Order</h2>
+                   <p className="text-blue-100 mt-1">
+                     Update order details and items
+                   </p>
+                 </div>
+                 <button
+                   onClick={() => {
+                     setShowEditForm(false);
+                     setEditingOrder(null);
+                     resetForm();
+                   }}
+                   className="p-3 rounded-2xl bg-white/20 hover:bg-white/30 transition-colors"
+                 >
+                   <X className="w-6 h-6" />
+                 </button>
+               </div>
+             </div>
+
+             <form onSubmit={handleUpdate} className="p-8 space-y-6">
+               {/* Order Details */}
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div>
+                   <label className="block text-lg font-semibold text-gray-700 mb-3">
+                     Order Code
+                   </label>
+                   <input
+                     type="text"
+                     name="order_code"
+                     value={formData.order_code}
+                     onChange={handleInputChange}
+                     className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent text-lg"
+                     placeholder="Order code"
+                   />
+                 </div>
+
+                 <div>
+                   <label className="block text-lg font-semibold text-gray-700 mb-3">
+                     Dealer <span className="text-red-500">*</span>
+                   </label>
+                   <select
+                     name="dealer_id"
+                     value={formData.dealer_id}
+                     onChange={handleInputChange}
+                     className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent text-lg"
+                     required
+                   >
+                     <option value="">Select Dealer</option>
+                     {dealers.map(dealer => (
+                       <option key={dealer.dealer_id} value={dealer.dealer_id}>
+                         {dealer.firm_name} - {dealer.person_name}
+                       </option>
+                     ))}
+                   </select>
+                 </div>
+
+                 <div>
+                   <label className="block text-lg font-semibold text-gray-700 mb-3">
+                     Order Status
+                   </label>
+                   <select
+                     name="order_status"
+                     value={formData.order_status}
+                     onChange={handleInputChange}
+                     className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent text-lg"
+                   >
+                     <option value="Pending">Pending</option>
+                     <option value="Processing">Processing</option>
+                     <option value="Shipped">Shipped</option>
+                     <option value="Completed">Completed</option>
+                     <option value="Cancelled">Cancelled</option>
+                   </select>
+                 </div>
+
+                 <div>
+                   <label className="block text-lg font-semibold text-gray-700 mb-3">
+                     Delivery Date
+                   </label>
+                   <input
+                     type="date"
+                     name="delivery_date"
+                     value={formData.delivery_date}
+                     onChange={handleInputChange}
+                     className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent text-lg"
+                   />
+                 </div>
+               </div>
+
+               {/* Order Items */}
+               <div>
+                 <div className="flex items-center justify-between mb-4">
+                   <label className="block text-lg font-semibold text-gray-700">
+                     Order Items <span className="text-red-500">*</span>
+                   </label>
+                   <button
+                     type="button"
+                     onClick={addItem}
+                     className="px-4 py-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors"
+                   >
+                     + Add Item
+                   </button>
+                 </div>
+                 <p className="text-sm text-gray-600 mb-4">
+                   💡 Stock validation: You can only order up to the available stock quantity for each product.
+                 </p>
+                 
+                 <div className="space-y-4">
+                   {formData.items.map((item, index) => (
+                     <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-2xl">
+                       <div>
+                         <label className="block text-sm font-medium text-gray-700 mb-2">
+                           Product
+                         </label>
+                         <select
+                           value={item.product_id}
+                           onChange={(e) => handleItemChange(index, 'product_id', e.target.value)}
+                           className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                           required
+                         >
+                           <option value="">Select Product</option>
+                           {products.map(product => (
+                             <option key={product.product_id} value={product.product_id}>
+                               {product.product_name} - ₹{product.price}
+                             </option>
+                           ))}
+                         </select>
+                       </div>
+                       
+                       <div>
+                         <label className="block text-sm font-medium text-gray-700 mb-2">
+                           Quantity
+                         </label>
+                         <input
+                           type="number"
+                           value={item.quantity}
+                           onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                           className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                           placeholder="0"
+                           required
+                         />
+                       </div>
+                       
+                       <div>
+                         <label className="block text-sm font-medium text-gray-700 mb-2">
+                           Unit Price
+                         </label>
+                         <input
+                           type="number"
+                           value={item.unit_price}
+                           onChange={(e) => handleItemChange(index, 'unit_price', e.target.value)}
+                           className="w-full px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                           placeholder="0.00"
+                           required
+                         />
+                       </div>
+                       
+                       <div className="flex items-end">
+                         <button
+                           type="button"
+                           onClick={() => removeItem(index)}
+                           disabled={formData.items.length === 1}
+                           className="px-3 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                         >
+                           Remove
+                         </button>
+                       </div>
+                     </div>
+                   ))}
+                 </div>
+               </div>
+
+               {/* Total Amount */}
+               <div className="bg-blue-50 p-6 rounded-2xl border border-blue-200">
+                 <div className="flex items-center justify-between">
+                   <label className="block text-lg font-semibold text-blue-700">
+                     Total Amount
+                   </label>
+                   <div className="text-3xl font-bold text-blue-600">
+                     ₹{calculateTotal().toLocaleString()}
+                   </div>
+                 </div>
+               </div>
+
+               {/* Submit Buttons */}
+               <div className="flex gap-4 pt-6 border-t border-gray-100">
+                 <button
+                   type="button"
+                   onClick={() => {
+                     setShowEditForm(false);
+                     setEditingOrder(null);
+                     resetForm();
+                   }}
+                   className="flex-1 px-6 py-4 border border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 transition-colors text-lg font-semibold"
+                 >
+                   Cancel
+                 </button>
+                 <button
+                   type="submit"
+                   className="flex-1 px-6 py-4 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-2xl hover:from-blue-600 hover:to-indigo-600 transition-colors shadow-lg text-lg font-semibold"
+                 >
+                   Update Order
+                 </button>
+               </div>
+             </form>
+           </div>
+         </div>
+       )}
+
+       {/* Order Items Modal */}
+       {showItemsModal && selectedOrder && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-white/50">
             <div className="bg-gradient-to-r from-purple-500 to-pink-500 p-8 text-white">

@@ -37,10 +37,28 @@ const Products = () => {
     type_burner: "Brass",
     price: "",
     quantity: "",
+    min_stock_level: "10",
     image_url: "",
+    image_public_id: "",
   });
 
   const [formErrors, setFormErrors] = useState({});
+
+  // Helper function to check if image URL is valid
+  const isValidImageUrl = (url) => {
+    if (!url) return false;
+    if (url.startsWith('blob:')) return false;
+    if (url.startsWith('data:')) return false;
+    return true;
+  };
+
+  // Helper function to get display image URL
+  const getDisplayImageUrl = (product) => {
+    if (isValidImageUrl(product.image_url)) {
+      return product.image_url;
+    }
+    return "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400";
+  };
 
   useEffect(() => {
     loadProducts();
@@ -91,15 +109,17 @@ const Products = () => {
   };
 
   const uploadImage = async (file) => {
-    // For now, we'll use a mock upload service
-    // In a real app, you'd upload to your server or cloud storage
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // Create a local URL for the uploaded file
-        const localUrl = URL.createObjectURL(file);
-        resolve(localUrl);
-      }, 1000);
-    });
+    try {
+      const result = await productsAPI.uploadImage(file);
+      if (result.success) {
+        return result.image.url;
+      } else {
+        throw new Error('Upload failed');
+      }
+    } catch (error) {
+      console.error('Image upload error:', error);
+      throw new Error('Failed to upload image. Please try again.');
+    }
   };
 
   const resetForm = () => {
@@ -110,7 +130,9 @@ const Products = () => {
       type_burner: "Brass",
       price: "",
       quantity: "",
+      min_stock_level: "10",
       image_url: "",
+      image_public_id: "",
     });
     setImageFile(null);
     setImagePreview("");
@@ -159,6 +181,8 @@ const Products = () => {
       // Upload image if file is selected
       if (imageFile) {
         imageUrl = await uploadImage(imageFile);
+        // Store the public_id for future reference
+        formData.image_public_id = imageUrl.split('/').pop().split('.')[0];
       }
 
       const productCode = generateProductCode(
@@ -168,12 +192,24 @@ const Products = () => {
         formData.type_burner,
       );
 
+      // Check for duplicate product code
+      const existingProduct = products.find(p => p.product_code === productCode);
+      if (existingProduct) {
+        setFormErrors({
+          product_name: `Product code "${productCode}" already exists. Please change the product name, category, or specifications to generate a unique code.`
+        });
+        setUploading(false);
+        return;
+      }
+
       const newProduct = {
         ...formData,
         product_code: productCode,
         price: parseFloat(formData.price),
         quantity: parseInt(formData.quantity),
+        min_stock_level: parseInt(formData.min_stock_level),
         image_url: imageUrl,
+        image_public_id: formData.image_public_id,
       };
 
       await productsAPI.create(newProduct);
@@ -197,7 +233,9 @@ const Products = () => {
       type_burner: product.type_burner,
       price: product.price.toString(),
       quantity: product.quantity.toString(),
+      min_stock_level: (product.min_stock_level || 10).toString(),
       image_url: product.image_url || "",
+      image_public_id: product.image_public_id || "",
     });
     setImagePreview(product.image_url || "");
     setImageFile(null);
@@ -214,6 +252,8 @@ const Products = () => {
       // Upload image if file is selected
       if (imageFile) {
         imageUrl = await uploadImage(imageFile);
+        // Store the public_id for future reference
+        formData.image_public_id = imageUrl.split('/').pop().split('.')[0];
       }
 
       const productCode = generateProductCode(
@@ -223,12 +263,25 @@ const Products = () => {
         formData.type_burner,
       );
 
+      // Check for duplicate product code (excluding current product)
+      const existingProduct = products.find(p => p.product_code === productCode && p.product_id !== editingProduct.product_id);
+      if (existingProduct) {
+        setFormErrors({
+          product_name: `Product code "${productCode}" already exists. Please change the product name, category, or specifications to generate a unique code.`
+        });
+        setUploading(false);
+        return;
+      }
+
       const updatedProduct = {
         ...formData,
         product_code: productCode,
         price: parseFloat(formData.price),
         quantity: parseInt(formData.quantity),
+        min_stock_level: parseInt(formData.min_stock_level),
         image_url: imageUrl,
+        image_public_id: formData.image_public_id,
+        old_image_public_id: editingProduct.image_public_id || null,
       };
 
       await productsAPI.update(editingProduct.product_id, updatedProduct);
@@ -367,25 +420,25 @@ const Products = () => {
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-600">In Stock</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {products.filter((p) => p.quantity > 10).length}
-                </p>
+                                 <p className="text-2xl font-bold text-gray-800">
+                   {products.filter((p) => p.quantity >= (p.min_stock_level || 10)).length}
+                 </p>
               </div>
             </div>
           </div>
-          <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/50">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center">
-                <span className="text-white text-xl">⚠️</span>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Low Stock</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {products.filter((p) => p.quantity < 10).length}
-                </p>
-              </div>
-            </div>
-          </div>
+                     <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/50">
+             <div className="flex items-center gap-3">
+               <div className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center">
+                 <span className="text-white text-xl">⚠️</span>
+               </div>
+               <div>
+                 <p className="text-sm font-medium text-gray-600">Low Stock</p>
+                 <p className="text-2xl font-bold text-gray-800">
+                   {products.filter((p) => p.quantity < (p.min_stock_level || 10)).length}
+                 </p>
+               </div>
+             </div>
+           </div>
           <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/50">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
@@ -449,6 +502,24 @@ const Products = () => {
               <Plus className="w-6 h-6" />
               Add Product
             </button>
+
+            <button
+              onClick={async () => {
+                if (window.confirm('This will clean up old blob URLs and set them to default images. Continue?')) {
+                  try {
+                    await productsAPI.cleanupBlobUrls();
+                    await loadProducts();
+                    alert('Cleanup completed! Old blob URLs have been removed.');
+                  } catch (error) {
+                    alert('Cleanup failed: ' + error.message);
+                  }
+                }
+              }}
+              className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-6 py-4 rounded-2xl hover:from-orange-600 hover:to-red-600 transition-all duration-300 flex items-center gap-3 shadow-lg hover:shadow-xl transform hover:scale-105 text-lg font-semibold"
+            >
+              <Trash2 className="w-5 h-5" />
+              Cleanup Images
+            </button>
           </div>
         </div>
       </div>
@@ -463,7 +534,7 @@ const Products = () => {
             {/* Product Image */}
             <div className="relative h-64 overflow-hidden">
                           <img
-              src={product.image_url || "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400"}
+                src={getDisplayImageUrl(product)}
               alt={product.product_name}
               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
               onError={(e) => {
@@ -474,15 +545,15 @@ const Products = () => {
 
               {/* Badges */}
               <div className="absolute top-4 left-4 flex gap-2">
-                <span
-                  className={`px-3 py-1 text-white text-xs font-bold rounded-full shadow-lg ${
-                    product.quantity < 10
-                      ? "bg-gradient-to-r from-red-500 to-red-600"
-                      : "bg-gradient-to-r from-green-500 to-green-600"
-                  }`}
-                >
-                  {product.quantity < 10 ? "⚠️ Low Stock" : "✅ In Stock"}
-                </span>
+                                 <span
+                   className={`px-3 py-1 text-white text-xs font-bold rounded-full shadow-lg ${
+                     product.quantity < (product.min_stock_level || 10)
+                       ? "bg-gradient-to-r from-red-500 to-red-600"
+                       : "bg-gradient-to-r from-green-500 to-green-600"
+                   }`}
+                 >
+                   {product.quantity < (product.min_stock_level || 10) ? "⚠️ Low Stock" : "✅ In Stock"}
+                 </span>
               </div>
 
               {/* Quick Actions */}
@@ -533,14 +604,15 @@ const Products = () => {
                     {product.type_burner}
                   </p>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-xl">
-                  <p className="text-xs text-gray-500 mb-1">Stock</p>
-                  <p
-                    className={`font-semibold ${product.quantity < 10 ? "text-red-600" : "text-green-600"}`}
-                  >
-                    {product.quantity} units
-                  </p>
-                </div>
+                                 <div className="bg-gray-50 p-3 rounded-xl">
+                   <p className="text-xs text-gray-500 mb-1">Stock</p>
+                   <p
+                     className={`font-semibold ${product.quantity < (product.min_stock_level || 10) ? "text-red-600" : "text-green-600"}`}
+                   >
+                     {product.quantity} units
+                   </p>
+                   <p className="text-xs text-gray-500">Min: {product.min_stock_level || 10}</p>
+                 </div>
               </div>
 
               {/* Price and Actions */}
@@ -730,6 +802,21 @@ const Products = () => {
                     className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-transparent text-lg"
                     placeholder="0"
                     required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-lg font-semibold text-gray-700 mb-3">
+                    Low Stock Threshold
+                  </label>
+                  <input
+                    type="number"
+                    name="min_stock_level"
+                    value={formData.min_stock_level}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-transparent text-lg"
+                    placeholder="10"
+                    min="1"
                   />
                 </div>
               </div>
@@ -1017,6 +1104,21 @@ const Products = () => {
                     className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-transparent text-lg"
                     placeholder="0"
                     required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-lg font-semibold text-gray-700 mb-3">
+                    Low Stock Threshold
+                  </label>
+                  <input
+                    type="number"
+                    name="min_stock_level"
+                    value={formData.min_stock_level}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-transparent text-lg"
+                    placeholder="10"
+                    min="1"
                   />
                 </div>
               </div>
