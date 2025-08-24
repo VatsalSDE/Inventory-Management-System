@@ -21,7 +21,49 @@ export const productsAPI = {
   }),
   delete: (id) => apiFetch(`/products/${id}`, {
     method: 'DELETE'
-  })
+  }),
+  // New image upload method
+  uploadImage: async (file) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    // Use apiFetch for consistency with other endpoints
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api'}/products/upload-image`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+      },
+      body: formData
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to upload image');
+    }
+    
+    return response.json();
+  },
+
+  // Clean up old blob URLs
+  cleanupBlobUrls: async () => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api'}/products/cleanup-blob-urls`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to cleanup blob URLs');
+      }
+      
+      return response.json();
+    } catch (error) {
+      console.error('Cleanup error:', error);
+      throw error;
+    }
+  }
 };
 
 // Dealers
@@ -46,6 +88,10 @@ export const ordersAPI = {
   getItems: (id) => apiFetch(`/orders/${id}/items`),
   create: (order) => apiFetch('/orders', {
     method: 'POST',
+    body: JSON.stringify(order)
+  }),
+  update: (id, order) => apiFetch(`/orders/${id}`, {
+    method: 'PUT',
     body: JSON.stringify(order)
   }),
   updateStatus: (id, status) => apiFetch(`/orders/${id}/status`, {
@@ -92,8 +138,8 @@ export const dashboardAPI = {
       const totalRevenue = payments.reduce((sum, p) => sum + parseFloat(p.paid_amount), 0);
       const totalInventoryValue = products.reduce((sum, p) => sum + (parseFloat(p.price) * p.quantity), 0);
       
-      // Get low stock products (quantity < 10)
-      const lowStockProducts = products.filter(p => p.quantity < 10).length;
+      // Get low stock products (quantity < min_stock_level)
+      const lowStockProducts = products.filter(p => p.quantity < (p.min_stock_level || 10)).length;
 
       return {
         totalProducts,
@@ -235,7 +281,7 @@ export const dashboardAPI = {
       
       // Add product updates
       products.slice(0, 2).forEach(product => {
-        if (product.quantity < 10) {
+        if (product.quantity < (product.min_stock_level || 10)) {
           activities.push({
             type: 'product',
             description: `Low stock alert: ${product.product_name}`,

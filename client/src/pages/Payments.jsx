@@ -96,19 +96,49 @@ const Payments = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Frontend validation
+    if (!formData.dealer_id || formData.dealer_id === '') {
+      setError('Please select a dealer');
+      return;
+    }
+    
+    if (!formData.paid_amount || formData.paid_amount === '') {
+      setError('Please enter a valid amount');
+      return;
+    }
+    
+    // Convert to numbers for validation
+    const dealerId = parseInt(formData.dealer_id);
+    const paidAmount = parseFloat(formData.paid_amount);
+    
+    if (isNaN(dealerId) || isNaN(paidAmount)) {
+      setError('Dealer ID and amount must be valid numbers');
+      return;
+    }
+    
+    if (paidAmount <= 0) {
+      setError('Amount must be greater than 0');
+      return;
+    }
+    
     try {
       const referenceNumber = formData.reference_number || generateReferenceNumber();
 
       const newPayment = {
         ...formData,
+        dealer_id: dealerId, // Ensure it's a number
+        paid_amount: paidAmount, // Ensure it's a number
         reference_number: referenceNumber,
         payment_date: formData.payment_date || new Date().toISOString().split('T')[0]
       };
 
+      console.log('📤 Sending payment data:', newPayment);
       await paymentsAPI.create(newPayment);
       await loadData();
       resetForm();
       setShowAddForm(false);
+      setError(null); // Clear any previous errors
     } catch (err) {
       setError(err.message);
       console.error('Failed to create payment:', err);

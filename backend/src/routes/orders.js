@@ -85,6 +85,49 @@ router.put('/:id/status', requireAuth, async (req, res) => {
   }
 });
 
+// Edit order details
+router.put('/:id', requireAuth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+    const { order_code, dealer_id, order_status, total_amount, delivery_date, items = [] } = req.body;
+
+    await client.query('BEGIN');
+
+    // Update order
+    const orderResult = await client.query(
+      `UPDATE orders SET order_code=$1, dealer_id=$2, order_status=$3, total_amount=$4, delivery_date=$5 WHERE order_id=$6 RETURNING *`,
+      [order_code, dealer_id, order_status, total_amount, delivery_date, id]
+    );
+
+    if (orderResult.rows.length === 0) {
+      throw new Error('Order not found');
+    }
+
+    // Delete existing order items
+    await client.query('DELETE FROM order_items WHERE order_id=$1', [id]);
+
+    // Add new order items
+    for (const item of items) {
+      const { product_id, quantity, unit_price } = item;
+      await client.query(
+        `INSERT INTO order_items (order_id, product_id, quantity, unit_price)
+         VALUES ($1,$2,$3,$4)`,
+        [id, product_id, quantity, unit_price]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json(orderResult.rows[0]);
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Order update error:', e);
+    res.status(500).json({ message: 'Failed to update order' });
+  } finally {
+    client.release();
+  }
+});
+
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
