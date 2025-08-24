@@ -201,7 +201,7 @@ const Dealers = () => {
         <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/50">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-white" />
+              <ShoppingCart className="w-6 h-6 text-white" />
             </div>
             <div>
               <p className="text-sm font-medium text-gray-600">Total Orders</p>

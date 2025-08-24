@@ -2,6 +2,7 @@ import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AdminNavitems } from "../../data/AdminNavItems";
 import { X } from "lucide-react";
+import logo from '../../assets/images/logo.png'
 
 const Sidebar = ({ onClose }) => {
   const navigate = useNavigate();
@@ -31,7 +32,7 @@ const Sidebar = ({ onClose }) => {
       )}
 
       {/* Logo Section */}
-      <div className="relative z-10 flex flex-col items-center pt-8 pb-8 px-6">
+      {/* <div className="relative z-10 flex flex-col items-center pt-8 pb-8 px-6">
         <div className="relative group">
           <div className="w-20 h-20 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-2xl group-hover:scale-105 transition-transform duration-300">
             <span className="text-white font-bold text-2xl"></span>
@@ -47,6 +48,25 @@ const Sidebar = ({ onClose }) => {
             Gas Stove Inventory
           </p>
         </div>
+      </div> */}
+      <div className="relative z-10 flex flex-col items-center pt-8 pb-8 px-6">
+    <div className="relative group">
+    <div className="w- h-20">
+  <img
+    src={logo}
+    alt="Invenza Logo"
+    className="w-500 h-20 object-contain rounded-xl bg-white p-2"
+  />
+</div>
+  </div>
+  <div className="text-center mt-4">
+    <h1 className="text-2xl font-bold bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent">
+      INVENZA
+    </h1>
+    <p className="text-sm text-slate-300 mt-1 font-medium">
+      Gas Stove Inventory
+    </p>
+  </div>
       </div>
 
       {/* Navigation */}

@@ -16,7 +16,7 @@ import {
   Line,
 } from "recharts";
 import { dashboardAPI } from "../services/api";
-import { AlertTriangle, Package, TrendingUp, DollarSign, Clock, CheckCircle, FileText } from "lucide-react";
+import { AlertTriangle, Package, TrendingUp, DollarSign, Clock, CheckCircle, FileText, IndianRupee } from "lucide-react";
 import AIPoweredFeatures from "../components/AIPoweredFeatures";
 
 
@@ -574,7 +574,7 @@ const Dashboard = () => {
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center shadow-lg">
-                <DollarSign className="w-6 h-6 text-white" />
+                <IndianRupee className="w-6 h-6 text-white" />
               </div>
               <div>
                 <h3 className="text-xl font-bold text-gray-800">

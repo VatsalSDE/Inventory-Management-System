@@ -98,7 +98,7 @@ const Products = () => {
     const file = e.target.files[0];
     if (file) {
       setImageFile(file);
-      
+
       // Create preview URL
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -140,44 +140,44 @@ const Products = () => {
 
   const validateForm = () => {
     const errors = {};
-    
+
     if (!formData.product_name.trim()) {
       errors.product_name = 'Product name is required';
     } else if (formData.product_name.trim().length < 3) {
       errors.product_name = 'Product name must be at least 3 characters';
     }
-    
+
     if (!formData.price || parseFloat(formData.price) <= 0) {
       errors.price = 'Price must be greater than 0';
     }
-    
+
     if (!formData.quantity || parseInt(formData.quantity) < 0) {
       errors.quantity = 'Quantity must be 0 or greater';
     }
-    
+
     if (imageFile && imageFile.size > 5 * 1024 * 1024) { // 5MB limit
       errors.image = 'Image size must be less than 5MB';
     }
-    
+
     return errors;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Validate form
     const errors = validateForm();
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
       return;
     }
-    
+
     try {
       setUploading(true);
       setFormErrors({}); // Clear errors on success
-      
+
       let imageUrl = formData.image_url;
-      
+
       // Upload image if file is selected
       if (imageFile) {
         imageUrl = await uploadImage(imageFile);
@@ -246,9 +246,9 @@ const Products = () => {
     e.preventDefault();
     try {
       setUploading(true);
-      
+
       let imageUrl = formData.image_url;
-      
+
       // Upload image if file is selected
       if (imageFile) {
         imageUrl = await uploadImage(imageFile);
@@ -351,7 +351,7 @@ const Products = () => {
           <div className="text-red-500 text-6xl mb-4">⚠️</div>
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Error Loading Products</h2>
           <p className="text-gray-600 mb-4">{error}</p>
-          <button 
+          <button
             onClick={loadProducts}
             className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
           >
@@ -381,18 +381,18 @@ const Products = () => {
             <h1 className="text-5xl font-bold bg-gradient-to-r from-gray-800 via-emerald-600 to-teal-600 bg-clip-text text-transparent">
               Products
             </h1>
-                         <p className="text-gray-600 mt-2 text-lg">
-               Manage your gas stove inventory with style
-             </p>
-             <div className="mt-4">
-               <button
-                 onClick={() => window.open('/catalogue.pdf', '_blank')}
-                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg"
-               >
-                 <FileText className="w-4 h-4" />
-                 View PDF Catalogue
-               </button>
-             </div>
+            <p className="text-gray-600 mt-2 text-lg">
+              Manage your gas stove inventory with style
+            </p>
+            <div className="mt-4">
+              <button
+                onClick={() => window.open('/catalogue.pdf', '_blank')}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg"
+              >
+                <FileText className="w-4 h-4" />
+                View PDF Catalogue
+              </button>
+            </div>
           </div>
         </div>
 
@@ -420,25 +420,25 @@ const Products = () => {
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-600">In Stock</p>
-                                 <p className="text-2xl font-bold text-gray-800">
-                   {products.filter((p) => p.quantity >= (p.min_stock_level || 10)).length}
-                 </p>
+                <p className="text-2xl font-bold text-gray-800">
+                  {products.filter((p) => p.quantity >= (p.min_stock_level || 10)).length}
+                </p>
               </div>
             </div>
           </div>
-                     <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/50">
-             <div className="flex items-center gap-3">
-               <div className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center">
-                 <span className="text-white text-xl">⚠️</span>
-               </div>
-               <div>
-                 <p className="text-sm font-medium text-gray-600">Low Stock</p>
-                 <p className="text-2xl font-bold text-gray-800">
-                   {products.filter((p) => p.quantity < (p.min_stock_level || 10)).length}
-                 </p>
-               </div>
-             </div>
-           </div>
+          <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/50">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center">
+                <span className="text-white text-xl">⚠️</span>
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Low Stock</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  {products.filter((p) => p.quantity < (p.min_stock_level || 10)).length}
+                </p>
+              </div>
+            </div>
+          </div>
           <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/50">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
@@ -448,9 +448,11 @@ const Products = () => {
                 <p className="text-sm font-medium text-gray-600">Avg. Price</p>
                 <p className="text-2xl font-bold text-gray-800">
                   ₹
-                  {products.length > 0 ? Math.round(
-                    products.reduce((sum, p) => sum + p.price, 0) / products.length
-                  ).toLocaleString() : 0}
+                  {products.length > 0
+                    ? (
+                      products.reduce((sum, p) => sum + (Number(p.price) || 0), 0) / products.length
+                    ).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : '0.00'}
                 </p>
               </div>
             </div>
@@ -533,32 +535,31 @@ const Products = () => {
           >
             {/* Product Image */}
             <div className="relative h-64 overflow-hidden">
-                          <img
+              <img
                 src={getDisplayImageUrl(product)}
-              alt={product.product_name}
-              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-              onError={(e) => {
-                e.target.src = "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400";
-              }}
-            />
+                alt={product.product_name}
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                onError={(e) => {
+                  e.target.src = "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400";
+                }}
+              />
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent"></div>
 
               {/* Badges */}
               <div className="absolute top-4 left-4 flex gap-2">
-                                 <span
-                   className={`px-3 py-1 text-white text-xs font-bold rounded-full shadow-lg ${
-                     product.quantity < (product.min_stock_level || 10)
-                       ? "bg-gradient-to-r from-red-500 to-red-600"
-                       : "bg-gradient-to-r from-green-500 to-green-600"
-                   }`}
-                 >
-                   {product.quantity < (product.min_stock_level || 10) ? "⚠️ Low Stock" : "✅ In Stock"}
-                 </span>
+                <span
+                  className={`px-3 py-1 text-white text-xs font-bold rounded-full shadow-lg ${product.quantity < (product.min_stock_level || 10)
+                      ? "bg-gradient-to-r from-red-500 to-red-600"
+                      : "bg-gradient-to-r from-green-500 to-green-600"
+                    }`}
+                >
+                  {product.quantity < (product.min_stock_level || 10) ? "⚠️ Low Stock" : "✅ In Stock"}
+                </span>
               </div>
 
               {/* Quick Actions */}
               <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <button 
+                <button
                   onClick={() => handleEdit(product)}
                   className="p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:bg-blue-500 hover:text-white transition-colors"
                 >
@@ -604,15 +605,15 @@ const Products = () => {
                     {product.type_burner}
                   </p>
                 </div>
-                                 <div className="bg-gray-50 p-3 rounded-xl">
-                   <p className="text-xs text-gray-500 mb-1">Stock</p>
-                   <p
-                     className={`font-semibold ${product.quantity < (product.min_stock_level || 10) ? "text-red-600" : "text-green-600"}`}
-                   >
-                     {product.quantity} units
-                   </p>
-                   <p className="text-xs text-gray-500">Min: {product.min_stock_level || 10}</p>
-                 </div>
+                <div className="bg-gray-50 p-3 rounded-xl">
+                  <p className="text-xs text-gray-500 mb-1">Stock</p>
+                  <p
+                    className={`font-semibold ${product.quantity < (product.min_stock_level || 10) ? "text-red-600" : "text-green-600"}`}
+                  >
+                    {product.quantity} units
+                  </p>
+                  <p className="text-xs text-gray-500">Min: {product.min_stock_level || 10}</p>
+                </div>
               </div>
 
               {/* Price and Actions */}
@@ -625,7 +626,7 @@ const Products = () => {
                 </div>
 
                 <div className="flex gap-2">
-                  <button 
+                  <button
                     onClick={() => handleEdit(product)}
                     className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-colors shadow-lg transform hover:scale-105 text-sm font-semibold"
                   >

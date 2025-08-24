@@ -15,6 +15,7 @@ import {
   Receipt,
   Banknote,
   Wallet,
+  IndianRupee,
 } from "lucide-react";
 import { paymentsAPI, ordersAPI, dealersAPI } from "../services/api";
 
@@ -275,7 +276,7 @@ const Payments = () => {
         <div className="flex items-center gap-4 mb-6">
           <div className="relative">
             <div className="w-16 h-16 bg-gradient-to-br from-green-500 via-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center shadow-xl">
-              <DollarSign className="w-8 h-8 text-white" />
+              <IndianRupee className="w-8 h-8 text-white" />
               <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
                 <span className="text-white text-xs font-bold">
                   {completedPayments}
@@ -299,7 +300,7 @@ const Payments = () => {
         <div className="bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-xl border border-white/50 hover:shadow-2xl transition-all duration-300">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <DollarSign className="w-6 h-6 text-white" />
+              <IndianRupee className="w-6 h-6 text-white" />
             </div>
             <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full font-medium">
               Total

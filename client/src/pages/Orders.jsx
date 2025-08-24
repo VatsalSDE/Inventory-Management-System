@@ -17,6 +17,7 @@ import {
   ShoppingCart,
   Truck,
   FileText,
+  IndianRupee,
 } from "lucide-react";
 import { ordersAPI, dealersAPI, productsAPI } from "../services/api";
 
@@ -416,7 +417,7 @@ const Orders = () => {
         <div className="bg-white/90 backdrop-blur-sm p-6 rounded-3xl shadow-xl border border-white/50 hover:shadow-2xl transition-all duration-300">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg">
-              <DollarSign className="w-6 h-6 text-white" />
+              <IndianRupee className="w-6 h-6 text-white" />
             </div>
             <span className="text-xs bg-purple-100 text-purple-600 px-2 py-1 rounded-full font-medium">
               Revenue

@@ -17,6 +17,7 @@ import {
   Receipt,
   X,
   Clock,
+  IndianRupee,
 } from "lucide-react";
 import { ordersAPI, dealersAPI, productsAPI } from "../services/api";
 
@@ -586,7 +587,7 @@ const Billing = () => {
           <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/50">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
-                <Receipt className="w-6 h-6 text-white" />
+                <Printer className="w-6 h-6 text-white" />
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Orders</p>
@@ -595,19 +596,22 @@ const Billing = () => {
             </div>
           </div>
 
-          <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/50">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
-                <DollarSign className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Value</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  ₹{orders.reduce((sum, order) => sum + (order.total_amount || 0), 0).toLocaleString()}
-                </p>
-              </div>
-            </div>
-          </div>
+      
+<div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/50">
+  <div className="flex items-center gap-3">
+    <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
+      <IndianRupee className="w-6 h-6 text-white" />
+    </div>
+    <div>
+      <p className="text-sm font-medium text-gray-600">Total Value</p>
+      <p className="text-2xl font-bold text-gray-800">
+        ₹{orders
+          .reduce((sum, order) => sum + (Number(order.total_amount) || 0), 0)
+          .toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      </p>
+    </div>
+  </div>
+</div>
 
           <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/50">
             <div className="flex items-center gap-3">
@@ -637,7 +641,7 @@ const Billing = () => {
       </div>
 
         {/* Debug Panel */}
-        <div className="bg-gray-100 p-4 rounded-lg mb-6">
+        {/* <div className="bg-gray-100 p-4 rounded-lg mb-6">
           <h3 className="font-semibold mb-2">Debug Info</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             <div>
@@ -670,7 +674,7 @@ const Billing = () => {
               ) : 'No dealers'}
             </div>
           </div>
-      </div>
+      </div> */}
 
         {/* Filters and Search */}
         <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-white/50 mb-8">
