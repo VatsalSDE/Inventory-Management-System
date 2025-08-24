@@ -34,14 +34,14 @@ const Sidebar = ({ onClose }) => {
       <div className="relative z-10 flex flex-col items-center pt-8 pb-8 px-6">
         <div className="relative group">
           <div className="w-20 h-20 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-2xl group-hover:scale-105 transition-transform duration-300">
-            <span className="text-white font-bold text-2xl">VL</span>
+            <span className="text-white font-bold text-2xl"></span>
             <div className="absolute inset-0 bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400 rounded-2xl opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
           </div>
           <div className="absolute -inset-2 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-3xl opacity-20 blur-lg group-hover:opacity-40 transition-opacity duration-300"></div>
         </div>
         <div className="text-center mt-4">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent">
-            Vinayak Lakshmi
+            INVENZA
           </h1>
           <p className="text-sm text-slate-300 mt-1 font-medium">
             Gas Stove Inventory
@@ -111,15 +111,6 @@ const Sidebar = ({ onClose }) => {
       </nav>
 
       {/* Footer */}
-      <div className="relative z-10 px-6 py-6 border-t border-white/10">
-        <div className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl backdrop-blur-sm border border-white/10">
-          <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-          <div>
-            <p className="text-sm font-medium text-white">System Online</p>
-            <p className="text-xs text-slate-300">All services running</p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

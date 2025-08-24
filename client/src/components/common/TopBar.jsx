@@ -234,16 +234,16 @@ const TopBar = ({ onToggleSidebar }) => {
         {/* Center Logo - Better positioning */}
         <div className="hidden xl:flex items-center gap-4 absolute left-1/2 transform -translate-x-1/2 pointer-events-none">
           <div className="relative group pointer-events-auto">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-xl group-hover:shadow-2xl transition-all duration-300 group-hover:scale-110">
-              <span className="text-white font-bold text-lg">VL</span>
-            </div>
+            {/* <div className="w-12 h-12 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-xl group-hover:shadow-2xl transition-all duration-300 group-hover:scale-110">
+              <span className="text-white font-bold text-lg"></span>
+            </div> */}
             <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-2xl opacity-20 blur-lg group-hover:opacity-40 transition-opacity duration-300"></div>
           </div>
           <div className="text-center pointer-events-auto">
-            <h1 className="text-xl font-bold bg-gradient-to-r from-gray-800 via-blue-600 to-purple-600 bg-clip-text text-transparent whitespace-nowrap">
-              Vinayak Lakshmi
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-800 via-blue-600 to-purple-600 bg-clip-text text-transparent whitespace-nowrap">
+              INVENZA
             </h1>
-            <p className="text-xs text-gray-500 font-medium -mt-1 whitespace-nowrap">
+            <p className="text-xl text-gray-500 font-medium -mt-1 whitespace-nowrap">
               Inventory Management
             </p>
           </div>
@@ -255,7 +255,7 @@ const TopBar = ({ onToggleSidebar }) => {
             <span className="text-white font-bold">VL</span>
           </div>
           <h1 className="text-lg font-bold bg-gradient-to-r from-gray-800 via-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Vinayak Lakshmi
+            INVENZA
           </h1>
         </div>
 
